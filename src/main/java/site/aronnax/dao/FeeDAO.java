@@ -29,7 +29,7 @@ public class FeeDAO {
      * @return 插入成功返回生成的主键ID，失败返回null
      */
     public Long insert(Fee fee) {
-        String sql = "INSERT INTO fees (p_id, fee_type, amount, is_paid, pay_date) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO fees (p_id, fee_type, amount, is_paid, payment_method, pay_date) VALUES (?, ?, ?, ?, ?, ?)";
         Connection conn = null;
         PreparedStatement pstmt = null;
         ResultSet rs = null;
@@ -41,11 +41,12 @@ public class FeeDAO {
             pstmt.setString(2, fee.getFeeType());
             pstmt.setDouble(3, fee.getAmount());
             pstmt.setInt(4, fee.getIsPaid());
+            pstmt.setString(5, fee.getPaymentMethod() != null ? fee.getPaymentMethod() : "WALLET");
 
             if (fee.getPayDate() != null) {
-                pstmt.setTimestamp(5, Timestamp.valueOf(fee.getPayDate()));
+                pstmt.setTimestamp(6, Timestamp.valueOf(fee.getPayDate()));
             } else {
-                pstmt.setNull(5, Types.TIMESTAMP);
+                pstmt.setNull(6, Types.TIMESTAMP);
             }
 
             int affected = pstmt.executeUpdate();
@@ -96,7 +97,7 @@ public class FeeDAO {
      * @return 更新成功返回true
      */
     public boolean update(Fee fee) {
-        String sql = "UPDATE fees SET p_id=?, fee_type=?, amount=?, is_paid=?, pay_date=? WHERE f_id=?";
+        String sql = "UPDATE fees SET p_id=?, fee_type=?, amount=?, is_paid=?, payment_method=?, pay_date=? WHERE f_id=?";
         Connection conn = null;
         PreparedStatement pstmt = null;
 
@@ -107,14 +108,15 @@ public class FeeDAO {
             pstmt.setString(2, fee.getFeeType());
             pstmt.setDouble(3, fee.getAmount());
             pstmt.setInt(4, fee.getIsPaid());
+            pstmt.setString(5, fee.getPaymentMethod());
 
             if (fee.getPayDate() != null) {
-                pstmt.setTimestamp(5, Timestamp.valueOf(fee.getPayDate()));
+                pstmt.setTimestamp(6, Timestamp.valueOf(fee.getPayDate()));
             } else {
-                pstmt.setNull(5, Types.TIMESTAMP);
+                pstmt.setNull(6, Types.TIMESTAMP);
             }
 
-            pstmt.setLong(6, fee.getfId());
+            pstmt.setLong(7, fee.getfId());
 
             int affected = pstmt.executeUpdate();
             return affected > 0;
@@ -281,6 +283,7 @@ public class FeeDAO {
         fee.setFeeType(rs.getString("fee_type"));
         fee.setAmount(rs.getDouble("amount"));
         fee.setIsPaid(rs.getInt("is_paid"));
+        fee.setPaymentMethod(rs.getString("payment_method"));
 
         Timestamp payDate = rs.getTimestamp("pay_date");
         Timestamp createdAt = rs.getTimestamp("created_at");

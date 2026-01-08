@@ -33,11 +33,11 @@ public class UtilityCardServiceImpl implements UtilityCardService {
             return false;
         }
 
-        // CRITICAL: Check for arrears before allowing top-up
-        boolean hasArrears = feeService.checkArrears(card.getpId());
+        // CRITICAL: Check for wallet arrears before allowing top-up
+        boolean hasArrears = feeService.checkWalletArrears(card.getpId());
         if (hasArrears) {
-            System.err.println("❌ 欠费拦截: 房产ID " + card.getpId() + " 存在未缴费用，无法充值！");
-            throw new IllegalStateException("该房产存在未缴费用，请先缴清欠款后再充值");
+            System.err.println("❌ 欠费拦截: 房产ID " + card.getpId() + " 存在未缴的物业费/取暖费，无法充值！");
+            throw new IllegalStateException("您有未缴的物业费/取暖费，请先缴清欠款后再充值");
         }
 
         // Proceed with top-up

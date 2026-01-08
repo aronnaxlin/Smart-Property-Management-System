@@ -16,6 +16,7 @@ public class Fee {
     private String feeType; // 费用类型
     private Double amount; // 账单金额
     private Integer isPaid; // 缴费状态: 0-未缴, 1-已缴
+    private String paymentMethod; // 支付方式: WALLET, WATER_CARD, ELEC_CARD
     private LocalDateTime payDate; // 缴费时间
     private LocalDateTime createdAt; // 账单生成时间
     private LocalDateTime updatedAt; // 状态更新时间
@@ -26,13 +27,14 @@ public class Fee {
 
     // 全参构造器
     public Fee(Long fId, Long pId, String feeType, Double amount,
-            Integer isPaid, LocalDateTime payDate,
+            Integer isPaid, String paymentMethod, LocalDateTime payDate,
             LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.fId = fId;
         this.pId = pId;
         this.feeType = feeType;
         this.amount = amount;
         this.isPaid = isPaid;
+        this.paymentMethod = paymentMethod;
         this.payDate = payDate;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -77,6 +79,14 @@ public class Fee {
 
     public void setIsPaid(Integer isPaid) {
         this.isPaid = isPaid;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
     }
 
     public LocalDateTime getPayDate() {

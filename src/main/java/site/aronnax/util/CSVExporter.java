@@ -67,7 +67,7 @@ public class CSVExporter {
     public static boolean exportFees(List<Fee> fees, String filePath) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
             // Write CSV header
-            writer.write("Fee ID,Property ID,Fee Type,Amount,Is Paid,Pay Date,Created At");
+            writer.write("Fee ID,Property ID,Fee Type,Amount,Is Paid,Payment Method,Pay Date,Created At");
             writer.newLine();
 
             // Write data rows
@@ -78,6 +78,7 @@ public class CSVExporter {
                 line.append(csvEscape(fee.getFeeType())).append(",");
                 line.append(fee.getAmount()).append(",");
                 line.append(fee.getIsPaid() == 1 ? "已缴" : "未缴").append(",");
+                line.append(csvEscape(fee.getPaymentMethod())).append(",");
                 line.append(fee.getPayDate() != null ? fee.getPayDate().format(DATE_FORMATTER) : "").append(",");
                 line.append(fee.getCreatedAt() != null ? fee.getCreatedAt().format(DATE_FORMATTER) : "");
 

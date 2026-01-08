@@ -42,6 +42,15 @@ public class FeeServiceImpl implements FeeService {
         fee.setIsPaid(0); // Unpaid by default
         fee.setPayDate(null);
 
+        // Auto-assign payment method based on fee type
+        if ("WATER_FEE".equals(feeType)) {
+            fee.setPaymentMethod("WATER_CARD");
+        } else if ("ELECTRICITY_FEE".equals(feeType)) {
+            fee.setPaymentMethod("ELEC_CARD");
+        } else {
+            fee.setPaymentMethod("WALLET"); // Default (Property/Heating)
+        }
+
         return feeDAO.insert(fee);
     }
 
@@ -104,6 +113,7 @@ public class FeeServiceImpl implements FeeService {
             arrearsInfo.put("fee_id", fee.getfId());
             arrearsInfo.put("fee_type", fee.getFeeType());
             arrearsInfo.put("amount", fee.getAmount());
+            arrearsInfo.put("payment_method", fee.getPaymentMethod());
             arrearsInfo.put("created_at", fee.getCreatedAt());
 
             arrearsList.add(arrearsInfo);
@@ -116,5 +126,16 @@ public class FeeServiceImpl implements FeeService {
     public boolean checkArrears(Long propertyId) {
         List<Fee> unpaidFees = feeDAO.findUnpaidByPropertyId(propertyId);
         return !unpaidFees.isEmpty(); // Returns true if there are unpaid fees
+    }
+
+    @Override
+    public boolean checkWalletArrears(Long propertyId) {
+        List<Fee> unpaidFees = feeDAO.findUnpaidByPropertyId(propertyId);
+        for (Fee fee : unpaidFees) {
+            if ("WALLET".equals(fee.getPaymentMethod())) {
+                return true;
+            }
+        }
+        return false;
     }
 }

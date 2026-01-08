@@ -64,4 +64,12 @@ public interface FeeService {
      * @return true if there are unpaid fees (blocked)
      */
     boolean checkArrears(Long propertyId);
+
+    /**
+     * Check if a property has any unpaid WALLET-paid fees
+     *
+     * @param propertyId Property ID
+     * @return true if there are unpaid wallet fees
+     */
+    boolean checkWalletArrears(Long propertyId);
 }
