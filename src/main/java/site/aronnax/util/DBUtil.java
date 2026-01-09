@@ -9,11 +9,22 @@ import java.util.Properties;
 
 /**
  * 数据库连接工具类
- * 提供统一的数据库连接管理，采用单例模式确保配置统一加载
+ *
+ * @deprecated 此类已被Spring JdbcTemplate替代，不应再使用
+ *
+ *             说明：
+ *             1. 本项目已全面使用Spring Boot的数据源管理和JdbcTemplate
+ *             2. 此类仅保留用于向后兼容或独立测试场景
+ *             3. 新代码应使用@Autowired注入JdbcTemplate，而非直接使用此工具类
+ *
+ *             推荐做法：
+ *             - Controller/Service层：注入JdbcTemplate或相应的DAO
+ *             - 数据源配置：使用application.properties中的spring.datasource.*配置
  *
  * @author Aronnax (Li Linhan)
  * @version 1.0
  */
+@Deprecated
 public class DBUtil {
 
     // 数据库连接配置参数
@@ -47,6 +58,7 @@ public class DBUtil {
 
             System.out.println("[DBUtil] 数据库配置加载成功");
             System.out.println("[DBUtil] 连接地址: " + url);
+            System.out.println("[DBUtil] 警告: 此类已过时，建议使用Spring JdbcTemplate");
 
         } catch (IOException e) {
             System.err.println("[DBUtil] 配置文件读取失败: " + e.getMessage());
@@ -60,9 +72,11 @@ public class DBUtil {
     /**
      * 获取数据库连接
      *
+     * @deprecated 使用Spring的DataSource代替
      * @return Connection 数据库连接对象
      * @throws SQLException 连接失败时抛出异常
      */
+    @Deprecated
     public static Connection getConnection() throws SQLException {
         Connection conn = DriverManager.getConnection(url, username, password);
         System.out.println("[DBUtil] 数据库连接成功");
@@ -72,8 +86,10 @@ public class DBUtil {
     /**
      * 关闭数据库连接
      *
+     * @deprecated 使用Spring的资源管理代替
      * @param conn 待关闭的连接对象
      */
+    @Deprecated
     public static void closeConnection(Connection conn) {
         if (conn != null) {
             try {
@@ -88,8 +104,10 @@ public class DBUtil {
     /**
      * 测试数据库连接是否可用
      *
+     * @deprecated 使用Spring Boot Actuator的健康检查代替
      * @return true 连接成功，false 连接失败
      */
+    @Deprecated
     public static boolean testConnection() {
         Connection conn = null;
         try {

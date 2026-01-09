@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import site.aronnax.dao.FeeDAO;
@@ -18,8 +19,14 @@ import site.aronnax.entity.User;
 import site.aronnax.service.FeeService;
 
 /**
- * Fee Service Implementation
- * Implements fee and billing management business logic
+ * 费用服务实现类
+ * 实现账单和缴费管理业务逻辑
+ *
+ * 核心功能：
+ * 1. 创建单笔或批量账单
+ * 2. 标记账单为已支付
+ * 3. 查询欠费列表
+ * 4. 检查房产是否存在欠费（关键拦截逻辑）
  *
  * @author Aronnax (Li Linhan)
  */
@@ -31,7 +38,16 @@ public class FeeServiceImpl implements FeeService {
     private final PropertyDAO propertyDAO;
     private final UserDAO userDAO;
 
+    /**
+     * 创建单笔账单
+     *
+     * @param propertyId 房产ID
+     * @param feeType    费用类型
+     * @param amount     账单金额
+     * @return 账单ID（当前实现可能返回null，但不影响业务）
+     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createFee(Long propertyId, String feeType, Double amount) {
         Fee fee = new Fee();
         fee.setpId(propertyId);
@@ -52,7 +68,17 @@ public class FeeServiceImpl implements FeeService {
         return feeDAO.insert(fee);
     }
 
+    /**
+     * 批量创建账单
+     * 为多个房产创建相同类型和金额的账单
+     *
+     * @param propertyIds 房产ID列表
+     * @param feeType     费用类型
+     * @param amount      账单金额
+     * @return 成功创建的账单数量
+     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int batchCreateFees(List<Long> propertyIds, String feeType, Double amount) {
         int count = 0;
         for (Long propertyId : propertyIds) {
@@ -69,7 +95,14 @@ public class FeeServiceImpl implements FeeService {
         return count;
     }
 
+    /**
+     * 标记账单为已支付
+     *
+     * @param feeId 账单ID
+     * @return 是否成功
+     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean payFee(Long feeId) {
         Fee fee = feeDAO.findById(feeId);
         if (fee == null) {
@@ -125,12 +158,29 @@ public class FeeServiceImpl implements FeeService {
         return arrearsList;
     }
 
+    /**
+     * 检查房产是否存在未缴费用
+     *
+     * 用于水电卡充值拦截逻辑
+     *
+     * @param propertyId 房产ID
+     * @return true表示存在欠费，false表示无欠费
+     */
     @Override
     public boolean checkArrears(Long propertyId) {
         List<Fee> unpaidFees = feeDAO.findUnpaidByPropertyId(propertyId);
         return !unpaidFees.isEmpty(); // Returns true if there are unpaid fees
     }
 
+    /**
+     * 检查房产是否存在钱包类费用欠费
+     *
+     * 钱包类费用：payment_method = 'WALLET' 的费用
+     * 主要包括物业费和取暖费
+     *
+     * @param propertyId 房产ID
+     * @return true表示存在钱包类欠费，false表示无欠费
+     */
     @Override
     public boolean checkWalletArrears(Long propertyId) {
         List<Fee> unpaidFees = feeDAO.findUnpaidByPropertyId(propertyId);

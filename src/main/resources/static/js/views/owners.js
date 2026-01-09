@@ -1,14 +1,28 @@
+/**
+ * 业主管理页面初始化
+ * 加载所有业主列表
+ */
 window.initOwners = function() {
-    searchOwners(); // Load all on init
+    searchOwners(); // 首次加载所有业主
 };
 
+/**
+ * 搜索业主
+ * 支持按关键词模糊搜索
+ */
 async function searchOwners() {
     const input = document.getElementById('ownerSearchInput');
-    const keyword = input ? input.value // Default empty string handled by backend effectively
-                  : '';
+    const keyword = input ? input.value.trim() : '';
 
-    const loading = '<tr><td colspan="5" style="text-align:center;">Loading...</td></tr>';
-    document.getElementById('ownersTableBody').innerHTML = loading;
+    // 防止恶意超长输入
+    if (keyword.length > 50) {
+        alert('搜索关键词过长，请控制在50字以内');
+        return;
+    }
+
+    const tbody = document.getElementById('ownersTableBody');
+    const loading = '<tr><td colspan="5" style="text-align:center;">加载中...</td></tr>';
+    tbody.innerHTML = loading;
 
     try {
         const res = await window.api.get('/owner/search', { keyword: keyword });
@@ -16,38 +30,36 @@ async function searchOwners() {
             renderOwnerTable(res.data);
         } else {
             alert('查询失败: ' + res.message);
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--accent-pink);">查询失败</td></tr>';
         }
     } catch (e) {
-        console.error(e);
-        document.getElementById('ownersTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--accent-pink);">Error loading data</td></tr>';
+        console.error('搜索错误:', e);
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--accent-pink);">系统错误</td></tr>';
     }
 }
 
+/**
+ * 渲染业主列表
+ *
+ * @param {Array} list - 业主数据列表
+ */
 function renderOwnerTable(list) {
     const tbody = document.getElementById('ownersTableBody');
+
     if (!list || list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">暂无数据 (No Data)</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">暂无数据</td></tr>';
         return;
     }
 
     let html = '';
     list.forEach(owner => {
-        // Owner object mapping from Map<String, Object> or DTO
-        // Typically keys from JDBC map are lower_case or CamelCase depending on mapper.
-        // My UserDAO uses BeanPropertyRowMapper or custom?
-        // Let's check UserDAO/Service return. Service returns Map for search?
-        // OwnerService.searchOwners returns List<Map<String, Object>>.
-        // Keys: "user_id", "user_name", "phone", "gender", "properties" (count)
-
-        // Actually OwnerServiceImpl returns full User/Owner logic?
-        // check OwnerServiceImpl.searchOwners.
-        // It injects properies info.
-
+        // 渲染业主信息行
+        // 数据来源：OwnerService.searchOwners 返回 Map<String, Object>
         html += `
             <tr>
                 <td>#${owner.user_id}</td>
-                <td class="text-cyan">${owner.name}</td>
-                <td>${owner.phone}</td>
+                <td class="text-cyan">${owner.name || '-'}</td>
+                <td>${owner.phone || '-'}</td>
                 <td>${owner.gender || '-'}</td>
                 <td>
                     <button class="sci-btn" onclick="viewOwnerDetail(${owner.user_id})">详情</button>
@@ -58,21 +70,28 @@ function renderOwnerTable(list) {
     tbody.innerHTML = html;
 }
 
+/**
+ * 查看业主详情
+ * 在模态框中显示业主信息和名下房产
+ *
+ * @param {number} id - 业主ID
+ */
 async function viewOwnerDetail(id) {
     const modal = document.getElementById('ownerDetailModal');
     const content = document.getElementById('ownerDetailContent');
 
+    // 显示模态框并显示加载状态
     modal.style.display = 'block';
-    content.innerHTML = 'Loading details...';
+    content.innerHTML = '加载中...';
 
     try {
-        // /getOwnerWithProperties(id)
         const res = await window.api.get(`/owner/${id}`);
         if (res.code === 200) {
             const data = res.data;
-            const owner = data; // Data is the flat owner map
+            const owner = data;
             const properties = data.properties;
 
+            // 渲染房产列表
             let propsHtml = '';
             if (properties && properties.length > 0) {
                 propsHtml = '<ul class="prop-list">' + properties.map(p => `
@@ -85,6 +104,7 @@ async function viewOwnerDetail(id) {
                 propsHtml = '<p class="text-dim">暂无房产</p>';
             }
 
+            // 渲染业主详细信息
             content.innerHTML = `
                 <div class="row">
                     <div class="col-6">
@@ -99,17 +119,29 @@ async function viewOwnerDetail(id) {
                     </div>
                 </div>
             `;
+        } else {
+            content.innerHTML = `<p style="color:var(--accent-pink);">加载失败：${res.message}</p>`;
         }
     } catch (e) {
-        content.innerText = '加载失败';
+        console.error('加载业主详情失败:', e);
+        content.innerText = '系统错误，加载失败';
     }
 }
 
+/**
+ * 翻译房产状态
+ *
+ * @param {string} status - 状态代码
+ * @returns {string} 中文状态名称
+ */
 function translateStatus(status) {
-    const map = { 'SOLD': '已售', 'UNSOLD': '待售' };
+    const map = { 'SOLD': '已售', 'UNSOLD': '待售', 'RENTED': '出租' };
     return map[status] || status;
 }
 
+/**
+ * 关闭业主详情模态框
+ */
 function closeOwnerModal() {
     document.getElementById('ownerDetailModal').style.display = 'none';
 }
