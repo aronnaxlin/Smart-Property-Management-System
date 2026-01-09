@@ -23,6 +23,7 @@ public class UtilityCardDAO {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    @SuppressWarnings("null")
     private final RowMapper<UtilityCard> cardRowMapper = (rs, rowNum) -> {
         UtilityCard card = new UtilityCard();
         card.setCardId(rs.getLong("card_id"));

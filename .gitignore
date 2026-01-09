@@ -56,3 +56,6 @@ out/
 
 # Java crash logs
 hs_err_pid*
+
+# AI Config
+.env

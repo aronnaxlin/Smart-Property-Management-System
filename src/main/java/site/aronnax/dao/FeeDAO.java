@@ -30,6 +30,7 @@ public class FeeDAO {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    @SuppressWarnings("null")
     private final RowMapper<Fee> feeRowMapper = (rs, rowNum) -> {
         Fee fee = new Fee();
         fee.setfId(rs.getLong("f_id"));
@@ -74,7 +75,8 @@ public class FeeDAO {
             return ps;
         }, keyHolder);
 
-        return keyHolder.getKey() != null ? keyHolder.getKey().longValue() : null;
+        Number key = keyHolder.getKey();
+        return key != null ? key.longValue() : null;
     }
 
     public boolean update(Fee fee) {
@@ -127,10 +129,14 @@ public class FeeDAO {
         Integer total = jdbcTemplate.queryForObject(sqlTotal, Integer.class);
         Integer paid = jdbcTemplate.queryForObject(sqlPaid, Integer.class);
 
+        // Handle nulls
+        int totalCount = total != null ? total : 0;
+        int paidCount = paid != null ? paid : 0;
+
         Map<String, Object> rate = new HashMap<>();
-        rate.put("total", total);
-        rate.put("paid", paid);
-        rate.put("rate", (total == null || total == 0) ? 0.0 : (double) paid / total);
+        rate.put("total", totalCount);
+        rate.put("paid", paidCount);
+        rate.put("rate", (totalCount == 0) ? 0.0 : (double) paidCount / totalCount);
         return rate;
     }
 

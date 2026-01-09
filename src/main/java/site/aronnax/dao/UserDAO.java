@@ -27,6 +27,7 @@ public class UserDAO {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    @SuppressWarnings("null")
     private final RowMapper<User> userRowMapper = (rs, rowNum) -> {
         User user = new User();
         user.setUserId(rs.getLong("user_id"));
@@ -69,7 +70,8 @@ public class UserDAO {
         }, keyHolder);
 
         // 返回生成的ID
-        return keyHolder.getKey() != null ? keyHolder.getKey().longValue() : null;
+        Number key = keyHolder.getKey();
+        return key != null ? key.longValue() : null;
     }
 
     /**

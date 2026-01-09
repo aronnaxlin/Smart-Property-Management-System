@@ -6,7 +6,6 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import lombok.RequiredArgsConstructor;
 import site.aronnax.dao.FeeDAO;
 import site.aronnax.dao.PropertyDAO;
 import site.aronnax.dao.UserWalletDAO;
@@ -32,7 +31,6 @@ import site.aronnax.service.WalletService;
  * @author Aronnax (Li Linhan)
  */
 @Service
-@RequiredArgsConstructor
 public class WalletServiceImpl implements WalletService {
 
     private final UserWalletDAO walletDAO;
@@ -40,6 +38,15 @@ public class WalletServiceImpl implements WalletService {
     private final FeeDAO feeDAO;
     private final UtilityCardDAO cardDAO;
     private final PropertyDAO propertyDAO;
+
+    public WalletServiceImpl(UserWalletDAO walletDAO, WalletTransactionDAO transactionDAO, FeeDAO feeDAO,
+            UtilityCardDAO cardDAO, PropertyDAO propertyDAO) {
+        this.walletDAO = walletDAO;
+        this.transactionDAO = transactionDAO;
+        this.feeDAO = feeDAO;
+        this.cardDAO = cardDAO;
+        this.propertyDAO = propertyDAO;
+    }
 
     /**
      * 钱包充值

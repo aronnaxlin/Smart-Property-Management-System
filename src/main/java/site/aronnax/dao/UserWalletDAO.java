@@ -23,6 +23,7 @@ public class UserWalletDAO {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    @SuppressWarnings("null")
     private final RowMapper<UserWallet> walletRowMapper = (rs, rowNum) -> {
         UserWallet wallet = new UserWallet();
         wallet.setWalletId(rs.getLong("wallet_id"));

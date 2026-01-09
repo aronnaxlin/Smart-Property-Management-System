@@ -5,7 +5,6 @@ import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import lombok.RequiredArgsConstructor;
 import site.aronnax.dao.UtilityCardDAO;
 import site.aronnax.entity.UtilityCard;
 import site.aronnax.service.FeeService;
@@ -22,11 +21,15 @@ import site.aronnax.service.UtilityCardService;
  * @author Aronnax (Li Linhan)
  */
 @Service
-@RequiredArgsConstructor
 public class UtilityCardServiceImpl implements UtilityCardService {
 
     private final UtilityCardDAO utilityCardDAO;
     private final FeeService feeService;
+
+    public UtilityCardServiceImpl(UtilityCardDAO utilityCardDAO, FeeService feeService) {
+        this.utilityCardDAO = utilityCardDAO;
+        this.feeService = feeService;
+    }
 
     /**
      * 水电卡充值

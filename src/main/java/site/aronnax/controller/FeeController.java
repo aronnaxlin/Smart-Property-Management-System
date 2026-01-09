@@ -64,7 +64,7 @@ public class FeeController {
 
         try {
             // 创建账单
-            Long feeId = feeService.createFee(propertyId, feeType, amount);
+            feeService.createFee(propertyId, feeType, amount);
 
             // 注意：当前DAO实现可能返回null，但只要不抛异常即表示成功
             return Result.success("账单创建成功");

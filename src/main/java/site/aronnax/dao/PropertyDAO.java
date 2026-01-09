@@ -23,6 +23,7 @@ public class PropertyDAO {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    @SuppressWarnings("null")
     private final RowMapper<Property> propertyRowMapper = (rs, rowNum) -> {
         Property property = new Property();
         property.setpId(rs.getLong("p_id"));

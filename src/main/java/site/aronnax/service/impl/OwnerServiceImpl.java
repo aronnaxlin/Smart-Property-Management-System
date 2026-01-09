@@ -7,7 +7,6 @@ import java.util.Map;
 
 import org.springframework.stereotype.Service;
 
-import lombok.RequiredArgsConstructor;
 import site.aronnax.dao.PropertyDAO;
 import site.aronnax.dao.UserDAO;
 import site.aronnax.entity.Property;
@@ -21,11 +20,15 @@ import site.aronnax.service.OwnerService;
  * @author Aronnax (Li Linhan)
  */
 @Service
-@RequiredArgsConstructor
 public class OwnerServiceImpl implements OwnerService {
 
     private final UserDAO userDAO;
     private final PropertyDAO propertyDAO;
+
+    public OwnerServiceImpl(UserDAO userDAO, PropertyDAO propertyDAO) {
+        this.userDAO = userDAO;
+        this.propertyDAO = propertyDAO;
+    }
 
     @Override
     public List<Map<String, Object>> searchOwners(String keyword) {

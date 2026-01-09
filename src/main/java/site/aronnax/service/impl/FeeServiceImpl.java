@@ -9,7 +9,6 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import lombok.RequiredArgsConstructor;
 import site.aronnax.dao.FeeDAO;
 import site.aronnax.dao.PropertyDAO;
 import site.aronnax.dao.UserDAO;
@@ -31,12 +30,17 @@ import site.aronnax.service.FeeService;
  * @author Aronnax (Li Linhan)
  */
 @Service
-@RequiredArgsConstructor
 public class FeeServiceImpl implements FeeService {
 
     private final FeeDAO feeDAO;
     private final PropertyDAO propertyDAO;
     private final UserDAO userDAO;
+
+    public FeeServiceImpl(FeeDAO feeDAO, PropertyDAO propertyDAO, UserDAO userDAO) {
+        this.feeDAO = feeDAO;
+        this.propertyDAO = propertyDAO;
+        this.userDAO = userDAO;
+    }
 
     /**
      * 创建单笔账单
@@ -82,7 +86,7 @@ public class FeeServiceImpl implements FeeService {
     public int batchCreateFees(List<Long> propertyIds, String feeType, Double amount) {
         int count = 0;
         for (Long propertyId : propertyIds) {
-            Long feeId = createFee(propertyId, feeType, amount);
+            createFee(propertyId, feeType, amount);
             // Check if insertion was successful (assuming insert returns null/id, though
             // new impl returns null always for now..
             // The logic assumes creating ID. Since current DAO returns null, count might be
