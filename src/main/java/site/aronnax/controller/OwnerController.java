@@ -15,7 +15,7 @@ import site.aronnax.service.OwnerService;
 
 /**
  * 业主管理控制器
- * 提供业主信息查询、房产查询和产权变更功能
+ * 处理业主档案检索、详情查看及房产过户业务。
  *
  * @author Aronnax (Li Linhan)
  */
@@ -30,91 +30,81 @@ public class OwnerController {
     }
 
     /**
-     * 搜索业主信息
-     * 支持按姓名、电话等关键词模糊搜索
+     * 条件搜索业主
+     * 支持姓名、手机号等模糊匹配。
      *
-     * @param keyword 搜索关键词（可选，为空时返回所有业主）
-     * @return 符合条件的业主列表
+     * @param keyword 检索关键字
      */
     @GetMapping("/search")
     public Result<List<Map<String, Object>>> search(
             @RequestParam(value = "keyword", defaultValue = "") String keyword) {
-        // 参数验证：防止恶意超长查询
+        // 安全前置：限制关键字长度，防止扫描探测
         if (keyword != null && keyword.length() > 50) {
-            return Result.error("搜索关键词过长");
+            return Result.error("搜索词超出长度限制");
         }
 
         try {
-            // 执行搜索
             List<Map<String, Object>> results = ownerService.searchOwners(keyword);
-
-            // 返回结果（如果为空则返回空列表）
             return Result.success(results != null ? results : List.of());
         } catch (Exception e) {
-            return Result.error("查询失败：" + e.getMessage());
+            return Result.error("检索链路异常：" + e.getMessage());
         }
     }
 
     /**
-     * 获取业主详细信息
-     * 包括业主基本信息和名下所有房产
+     * 业主档案详情
+     * 返回业主基本资料及其名下的资产配置（房产列表）。
      *
-     * @param id 业主ID
-     * @return 业主详细信息
+     * @param id 用户唯一标识
      */
     @GetMapping("/{id}")
     public Result<Map<String, Object>> getOwnerDetail(@PathVariable("id") Long id) {
-        // 参数验证：业主ID不能为空
         if (id == null || id <= 0) {
-            return Result.error("业主ID无效");
+            return Result.error("业主 ID 获取失败");
         }
 
         try {
-            // 查询业主及其房产信息
             Map<String, Object> ownerDetail = ownerService.getOwnerWithProperties(id);
 
             if (ownerDetail == null || ownerDetail.isEmpty()) {
-                return Result.error("业主不存在");
+                return Result.error("该业主档案不存在或已被注销");
             }
 
             return Result.success(ownerDetail);
         } catch (Exception e) {
-            return Result.error("查询失败：" + e.getMessage());
+            return Result.error("详情加载失败：" + e.getMessage());
         }
     }
 
     /**
-     * 房产产权变更
-     * 将指定房产的所有权转移给新业主
+     * 房产过户业务
+     * 变更房产档案的归属人。
      *
-     * @param propertyId 房产ID
-     * @param newOwnerId 新业主ID
-     * @return 变更结果
+     * @param propertyId 目标房产 ID
+     * @param newOwnerId 接收方业主 ID
      */
     @PostMapping("/property/transfer")
     public Result<String> transferProperty(@RequestParam("propertyId") Long propertyId,
             @RequestParam("newOwnerId") Long newOwnerId) {
-        // 参数验证：房产ID不能为空
         if (propertyId == null || propertyId <= 0) {
-            return Result.error("房产ID无效");
+            return Result.error("请选择有效的房产");
         }
 
-        // 参数验证：新业主ID不能为空
         if (newOwnerId == null || newOwnerId <= 0) {
-            return Result.error("新业主ID无效");
+            return Result.error("请选择有效的新业主");
         }
 
         try {
-            // 执行产权变更
+            // 执行业务变更
             boolean success = ownerService.updatePropertyOwner(propertyId, newOwnerId);
 
             if (success) {
-                return Result.success("产权变更成功");
+                return Result.success("房产权属变更已生效");
             }
 
-            return Result.error("产权变更失败，请检查房产ID和业主ID是否有效");
+            return Result.error("过户失败：系统核验不通过，请确认人员与房产状态");
         } catch (Exception e) {
-            return Result.error("变更失败：" + e.getMessage());
+            return Result.error("服务端处理异常：" + e.getMessage());
         }
     }
 }

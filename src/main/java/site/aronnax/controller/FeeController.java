@@ -16,7 +16,7 @@ import site.aronnax.service.FeeService;
 
 /**
  * 费用管理控制器
- * 提供账单创建、批量创建、欠费查询和缴费功能
+ * 面向物业管理端，提供账单的精准派发、批量操作及欠费全局监控。
  *
  * @author Aronnax (Li Linhan)
  */
@@ -31,76 +31,67 @@ public class FeeController {
     }
 
     /**
-     * 创建单笔账单
+     * 下发单笔费用单据
+     * 适用于针对特定房产的临时收费（如特殊维护费）。
      *
-     * @param propertyId 房产ID
-     * @param feeType    费用类型（PROPERTY_FEE/HEATING_FEE/WATER_FEE/ELECTRICITY_FEE）
-     * @param amount     账单金额
-     * @return 创建结果
+     * @param propertyId 房产主键 ID
+     * @param feeType    待生成的费用类型
+     * @param amount     账单面额
      */
     @PostMapping("/create")
     public Result<String> createFee(@RequestParam("propertyId") Long propertyId,
             @RequestParam("feeType") String feeType,
             @RequestParam("amount") Double amount) {
-        // 参数验证：房产ID不能为空
+        // 参数前置校验：确保数据有效性
         if (propertyId == null || propertyId <= 0) {
-            return Result.error("房产ID无效");
+            return Result.error("无效的房产标识");
         }
-
-        // 参数验证：费用类型不能为空
         if (feeType == null || feeType.trim().isEmpty()) {
-            return Result.error("费用类型不能为空");
+            return Result.error("费用类型未指定");
         }
-
-        // 参数验证：金额必须大于0
         if (amount == null || amount <= 0) {
-            return Result.error("账单金额必须大于0");
+            return Result.error("计费金额必须大于零");
         }
 
-        // 参数验证：金额上限检查
+        // 风控拦截：防止逻辑溢出或非法输入
         if (amount > 100000) {
-            return Result.error("单笔账单金额不能超过10万元");
+            return Result.error("单张账单金额已超过系统上限（10万元）");
         }
 
         try {
-            // 创建账单
+            // 路由至业务层，执行入库逻辑
             feeService.createFee(propertyId, feeType, amount);
-
-            // 注意：当前DAO实现可能返回null，但只要不抛异常即表示成功
-            return Result.success("账单创建成功");
+            return Result.success("费用下发成功");
         } catch (Exception e) {
-            return Result.error("创建失败：" + e.getMessage());
+            return Result.error("下发失败，请检查数据一致性：" + e.getMessage());
         }
     }
 
     /**
-     * 批量创建账单
-     * 为多个房产创建相同类型和金额的账单
+     * 批量创建功能
+     * 典型场景：物业费年度统扣、取暖季统扣。
      *
-     * @param params 包含propertyIds（房产ID列表）、feeType和amount的参数Map
-     * @return 批量创建结果
+     * @param params 映射列表，需包含 propertyIds, feeType 和 amount
      */
     @PostMapping("/batch-create")
     public Result<String> batchCreate(@RequestBody Map<String, Object> params) {
-        // 参数验证：提取并验证参数
         if (params == null || params.isEmpty()) {
-            return Result.error("参数不能为空");
+            return Result.error("报文负载缺失");
         }
 
-        // 提取房产ID列表
+        // 提取待处理的房产 ID 集合
         @SuppressWarnings("unchecked")
         List<Long> propertyIds = (List<Long>) params.get("propertyIds");
         if (propertyIds == null || propertyIds.isEmpty()) {
-            return Result.error("房产ID列表不能为空");
+            return Result.error("目标房产范围不能为空");
         }
 
-        // 提取费用类型
         String feeType = (String) params.get("feeType");
         if (feeType == null || feeType.trim().isEmpty()) {
-            return Result.error("费用类型不能为空");
+            return Result.error("费用分类未定义");
         }
 
-        // 提取金额（处理可能的类型转换）
+        // 金额类型适应性解析（兼容 JSON 数值的不同表现形式）
         Double amount;
         try {
             Object amountObj = params.get("amount");
@@ -109,31 +100,28 @@ public class FeeController {
             } else if (amountObj instanceof Double) {
                 amount = (Double) amountObj;
             } else {
-                return Result.error("金额格式不正确");
+                return Result.error("计费额度格式解析异常");
             }
         } catch (Exception e) {
-            return Result.error("金额格式不正确");
+            return Result.error("金额数据类型错误");
         }
 
-        // 验证金额
         if (amount <= 0) {
-            return Result.error("账单金额必须大于0");
+            return Result.error("计费值必须为正数");
         }
 
         try {
-            // 批量创建账单
+            // 调用业务层执行批量插入事务
             int count = feeService.batchCreateFees(propertyIds, feeType, amount);
-            return Result.success("批量创建成功，共创建 " + count + " 条账单");
+            return Result.success("批量计费完成，已生成 " + count + " 个房产的应缴账单");
         } catch (Exception e) {
-            return Result.error("批量创建失败：" + e.getMessage());
+            return Result.error("批量执行失败，事务已回滚：" + e.getMessage());
         }
     }
 
     /**
-     * 查询欠费列表
-     * 返回所有未缴纳的账单及相关业主、房产信息
-     *
-     * @return 欠费列表
+     * 欠费全局清册接口
+     * 提供已逾期未缴纳的所有单据视图，含业主联系信息。
      */
     @GetMapping("/arrears")
     public Result<List<Map<String, Object>>> getArrearsList() {
@@ -141,34 +129,28 @@ public class FeeController {
             List<Map<String, Object>> arrearsList = feeService.getArrearsList();
             return Result.success(arrearsList != null ? arrearsList : List.of());
         } catch (Exception e) {
-            return Result.error("查询失败：" + e.getMessage());
+            return Result.error("获取统计视图失败：" + e.getMessage());
         }
     }
 
     /**
-     * 标记账单为已支付
-     *
-     * @param feeId 账单ID
-     * @return 支付结果
+     * 标记人工缴费
+     * 用于物业前台线下收银后，手动同步系统状态。
      */
     @PostMapping("/pay/{feeId}")
     public Result<String> payFee(@PathVariable("feeId") Long feeId) {
-        // 参数验证：账单ID不能为空
         if (feeId == null || feeId <= 0) {
-            return Result.error("账单ID无效");
+            return Result.error("账单流水号非法");
         }
 
         try {
-            // 标记账单为已支付
             boolean success = feeService.payFee(feeId);
-
             if (success) {
-                return Result.success("支付标记成功");
+                return Result.success("支付状态同步成功");
             }
-
-            return Result.error("支付失败，账单不存在");
+            return Result.error("同步失败，未查询到该账单号");
         } catch (Exception e) {
-            return Result.error("支付失败：" + e.getMessage());
+            return Result.error("服务端异常：" + e.getMessage());
         }
     }
 }

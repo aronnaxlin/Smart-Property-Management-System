@@ -13,8 +13,8 @@ import site.aronnax.entity.WalletTransaction;
 import site.aronnax.service.WalletService;
 
 /**
- * 钱包管理控制器
- * 提供钱包余额查询、充值、缴费等功能
+ * 电子钱包控制器
+ * 提供账户余额查询、线上充值、在线缴费及交易流水调阅功能。
  *
  * @author Aronnax (Li Linhan)
  */
@@ -29,23 +29,19 @@ public class WalletController {
     }
 
     /**
-     * 查询钱包余额
+     * 获取钱包账户概览
      *
-     * @param userId 用户ID
-     * @return 钱包余额（如果钱包不存在则返回0.0）
+     * @param userId 业主唯一标识
      */
     @GetMapping("/info")
     public Result<Double> getWalletBalance(@RequestParam("userId") Long userId) {
-        // 参数验证：用户ID不能为空
         if (userId == null || userId <= 0) {
-            return Result.error("用户ID无效");
+            return Result.error("用户凭据校验失败");
         }
 
-        // 查询钱包余额
         Double balance = walletService.getWalletBalance(userId);
 
-        // 如果钱包不存在，返回0.0作为默认值
-        // 用户首次使用时会自动创建钱包
+        // 容错处理：若为新用户且尚未触发自动开户，默认返回零余额
         if (balance == null) {
             return Result.success(0.0);
         }
@@ -54,79 +50,67 @@ public class WalletController {
     }
 
     /**
-     * 钱包充值
+     * 钱包资金注入
+     * 模拟第三方支付（如微信/支付宝）回调后的入账过程。
      *
-     * @param userId 用户ID
-     * @param amount 充值金额（必须大于0）
-     * @return 充值结果
+     * @param userId 用户 ID
+     * @param amount 充值标额
      */
     @PostMapping("/recharge")
     public Result<String> recharge(@RequestParam("userId") Long userId, @RequestParam("amount") Double amount) {
-        // 参数验证：用户ID不能为空
         if (userId == null || userId <= 0) {
-            return Result.error("用户ID无效");
+            return Result.error("账户验证失败");
         }
 
-        // 参数验证：金额必须为正数
         if (amount == null || amount <= 0) {
-            return Result.error("充值金额必须大于0");
+            return Result.error("充值额度需大于零");
         }
 
-        // 参数验证：金额上限检查（防止异常大额充值）
+        // 风控阈值：防止极端金额导致的系统溢出或合规风控
         if (amount > 1000000) {
-            return Result.error("单次充值金额不能超过100万元");
+            return Result.error("已触发单笔超限额保护（100万元）");
         }
 
-        // 执行充值操作
         boolean success = walletService.rechargeWallet(userId, amount);
-
         if (success) {
-            return Result.success("钱包充值成功");
+            return Result.success("资金已安全到达电子钱包账户");
         }
 
-        return Result.error("充值失败，请稍后重试");
+        return Result.error("充值处理失败，由于系统链路故障，请点击“重新提交”");
     }
 
     /**
-     * 查询钱包交易记录
-     *
-     * @param userId 用户ID
-     * @return 交易记录列表
+     * 历史交易流水调阅
+     * 每一笔充值、扣款、转账记录均可追溯。
      */
     @GetMapping("/transactions")
     public Result<List<WalletTransaction>> getTransactions(@RequestParam("userId") Long userId) {
-        // 参数验证：用户ID不能为空
         if (userId == null || userId <= 0) {
-            return Result.error("用户ID无效");
+            return Result.error("未授权的查询请求");
         }
 
-        // 查询交易历史
         List<WalletTransaction> transactions = walletService.getTransactionHistory(userId);
-
-        // 返回交易记录（如果为空则返回空列表）
         return Result.success(transactions != null ? transactions : List.of());
     }
 
     /**
-     * 使用钱包余额缴纳费用
+     * 余额代扣（生活缴费）
+     * 允许业主通过钱包余额结清物业费或取暖费。
      *
-     * @param feeId 账单ID
-     * @return 缴费结果
+     * @param feeId 账单单号
      */
     @PostMapping("/pay-fee")
     public Result<String> payFee(@RequestParam("feeId") Long feeId) {
-        // 参数验证：账单ID不能为空
         if (feeId == null || feeId <= 0) {
-            return Result.error("账单ID无效");
+            return Result.error("账单流水号无效");
         }
 
-        // 执行缴费操作
+        // 执行双向原子扣款
         boolean success = walletService.payFeeFromWallet(feeId);
-
         if (success) {
-            return Result.success("缴费成功");
+            return Result.success("账单缴清，系统已实时更新房产财务状态");
         }
 
-        return Result.error("缴费失败：余额不足或账单无效");
+        return Result.error("缴费失败：可能由于账户余额不足或该账单已被锁定");
     }
 }

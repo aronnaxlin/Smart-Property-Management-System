@@ -49,71 +49,65 @@ public class WalletServiceImpl implements WalletService {
     }
 
     /**
-     * 钱包充值
-     *
-     * @param userId 用户ID
-     * @param amount 充值金额
-     * @return 充值是否成功
+     * 钱包充值逻辑
+     * 实现用户资金注入。
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean rechargeWallet(Long userId, Double amount) {
-        // 参数验证：金额必须为正数
+        // 数据完整性校验：拦截非法金额
         if (amount == null || amount <= 0) {
             return false;
         }
 
-        // 获取或创建钱包
+        // 获取或初始化钱包（延迟创建模式）
         UserWallet wallet = walletDAO.findByUserId(userId);
         if (wallet == null) {
-            // 首次使用，自动创建钱包
             if (!createWallet(userId)) {
                 return false;
             }
             wallet = walletDAO.findByUserId(userId);
             if (wallet == null) {
-                // 创建失败
                 return false;
             }
         }
 
-        // 更新余额
+        // 资金入账
         Double currentBalance = wallet.getBalance() != null ? wallet.getBalance() : 0.0;
         Double newBalance = currentBalance + amount;
         wallet.setBalance(newBalance);
 
-        // 更新累计充值金额
+        // 维护审计字段：累计充值额度
         Double totalRecharged = wallet.getTotalRecharged() != null ? wallet.getTotalRecharged() : 0.0;
         wallet.setTotalRecharged(totalRecharged + amount);
 
-        // 执行数据库更新
         boolean success = walletDAO.update(wallet);
 
         if (success) {
-            // 记录充值交易
+            // 生成充值凭证流水
             recordTransaction(wallet.getWalletId(), "RECHARGE", amount, newBalance, null,
-                    "钱包充值: +" + amount + "元");
+                    "在线账户资金注入: +" + amount + "元");
         }
 
         return success;
     }
 
     /**
-     * 使用钱包余额缴纳费用
+     * 内部余额支付（缴费）
      *
-     * 事务操作：同时更新钱包余额和费用状态
-     *
-     * @param feeId 费用ID
-     * @return 缴费是否成功
+     * 逻辑闭环：
+     * 1. 验证账单是否处于待缴状态 -> 2. 验证余额充足性 -> 3. 执行双向更新（余额减、账单结） -> 4. 存证。
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean payFeeFromWallet(Long feeId) {
+        // 第一步：单据状态前校验
         Fee fee = feeDAO.findById(feeId);
         if (fee == null || fee.getIsPaid() == 1 || !"WALLET".equals(fee.getPaymentMethod())) {
             return false;
         }
 
+        // 第二步：余额充足性判定
         Property property = propertyDAO.findById(fee.getpId());
         if (property == null || property.getUserId() == null) {
             return false;
@@ -128,6 +122,7 @@ public class WalletServiceImpl implements WalletService {
         if (currentBalance < fee.getAmount())
             return false;
 
+        // 第三阶段：资金扣减与单据标记（受强事务保护）
         Double newBalance = currentBalance - fee.getAmount();
         wallet.setBalance(newBalance);
 
@@ -140,38 +135,35 @@ public class WalletServiceImpl implements WalletService {
         boolean feeUpdated = feeDAO.update(fee);
 
         if (feeUpdated) {
+            // 流水归档
             recordTransaction(wallet.getWalletId(), "PAY_FEE", -fee.getAmount(), newBalance, feeId,
-                    "缴费: " + fee.getFeeType() + " -" + fee.getAmount() + "元");
+                    "生活缴费支付: " + fee.getFeeType() + " -" + fee.getAmount() + "元");
         }
 
         return feeUpdated;
     }
 
     /**
-     * 使用钱包余额为水电卡充值
+     * 钱包转账向水电卡（核心风控业务）
      *
-     * 【核心业务逻辑】：充值前必须检查欠费状态
-     * 事务操作：同时更新钱包和水电卡余额
+     * 【重要规则】：系统在此处执行“欠费静默锁定”。
+     * 如果用户存在物业/取暖欠费，其内部资金流转路径将被切断。
      *
-     * @param userId 用户ID
-     * @param cardId 水电卡ID
-     * @param amount 充值金额
-     * @return 充值是否成功
-     * @throws IllegalStateException 当存在未缴费用时抛出
+     * @throws IllegalStateException 触发拦截规则时抛出异常
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean topUpCardFromWallet(Long userId, Long cardId, Double amount) {
-        // 参数验证
         if (amount == null || amount <= 0) {
             return false;
         }
 
-        // 【关键拦截】检查是否存在未缴的钱包类费用
+        // 【安全拦截】检查该用户在全区名下的财务健康度
         if (checkWalletArrears(userId)) {
-            throw new IllegalStateException("您有未缴的物业费/取暖费，请先缴清欠款后再充值");
+            throw new IllegalStateException("【缴费受阻】检测到您当前存在逾期未缴的物业费/取暖费单项，系统已锁定水电卡充值通道。");
         }
 
+        // 账户状态核验
         UserWallet wallet = walletDAO.findByUserId(userId);
         if (wallet == null)
             return false;
@@ -184,10 +176,12 @@ public class WalletServiceImpl implements WalletService {
         if (card == null)
             return false;
 
+        // 资产归属校验：防止由于接口构造错误导致向他人房产转账
         Property property = propertyDAO.findById(card.getpId());
         if (property == null || !property.getUserId().equals(userId))
             return false;
 
+        // 跨模块资金搬运
         Double newWalletBalance = currentWalletBalance - amount;
         wallet.setBalance(newWalletBalance);
         if (!walletDAO.update(wallet))
@@ -200,20 +194,15 @@ public class WalletServiceImpl implements WalletService {
 
         if (cardUpdated) {
             recordTransaction(wallet.getWalletId(), "TOPUP_CARD", -amount, newWalletBalance, cardId,
-                    "充值" + card.getCardType() + "卡: -" + amount + "元");
+                    "内部转账-卡片充值: -" + amount + "元");
         }
 
         return cardUpdated;
     }
 
     /**
-     * 检查用户是否存在钱包类费用欠费
-     *
-     * 钱包类费用包括：物业费(PROPERTY_FEE)、取暖费(HEATING_FEE)
-     * 不包括：水费、电费（这些由水电卡支付）
-     *
-     * @param userId 用户ID
-     * @return true表示存在欠费，false表示无欠费
+     * 递归检索用户名下所有房产的财务状态
+     * 判定准则：任意一套房产存在 payment_method = 'WALLET' 且未支付的账单，即判定为欠费。
      */
     @Override
     public boolean checkWalletArrears(Long userId) {
@@ -243,6 +232,9 @@ public class WalletServiceImpl implements WalletService {
         return transactionDAO.findByWalletId(wallet.getWalletId());
     }
 
+    /**
+     * 初始化财务账户
+     */
     @Override
     public boolean createWallet(Long userId) {
         UserWallet wallet = new UserWallet();
@@ -252,12 +244,16 @@ public class WalletServiceImpl implements WalletService {
         return walletDAO.insert(wallet) != null;
     }
 
+    /**
+     * 内部存证方法
+     * 确保每一分钱的去向都有迹可循，用于年底财务对账。
+     */
     private void recordTransaction(Long walletId, String transType, Double amount, Double balanceAfter, Long relatedId,
             String description) {
         WalletTransaction transaction = new WalletTransaction();
         transaction.setWalletId(walletId);
         transaction.setTransType(transType);
-        transaction.setAmount(Math.abs(amount));
+        transaction.setAmount(Math.abs(amount)); // 金额以绝对值存入，类型由 transType 区分
         transaction.setBalanceAfter(balanceAfter);
         transaction.setRelatedId(relatedId);
         transaction.setDescription(description);

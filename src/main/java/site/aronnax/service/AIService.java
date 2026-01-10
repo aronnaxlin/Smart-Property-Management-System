@@ -15,11 +15,13 @@ import com.openai.models.ChatCompletionSystemMessageParam;
 import com.openai.models.ChatCompletionUserMessageParam;
 
 /**
- * AI智能助手服务
+ * AI 智能助手服务
+ * 基于 OpenAI 官方 Java SDK 实现智能对话功能，深度集成小区物业数据。
  *
- * 基于OpenAI官方Java SDK实现智能对话功能
- * 支持角色化提示词（业主助手/管理员助手）
- * 集成数据分析能力
+ * 核心特性：
+ * 1. 角色化提示词：内置“业主助手”与“管理员助手”两种角色逻辑。
+ * 2. 实时上下文：自动根据登录用户身份（业主/管理）提取关联的欠费、余额、统计等数据作为 AI 背景。
+ * 3. 稳健回退：当 API 密钥未配置或调用失败时，自动切换至基于规则的演示/Fallback 模式。
  *
  * @author Aronnax (Li Linhan)
  */
@@ -34,7 +36,9 @@ public class AIService {
 
     /**
      * 构造函数注入
-     * openAIClient可能为null（当API未配置时）
+     *
+     * @param openAIClient  OpenAI 客户端实例（若 API 缺失可能为 null）
+     * @param aiDataService 提供业务数据上下文支持
      */
     @org.springframework.beans.factory.annotation.Autowired
     public AIService(@org.springframework.lang.Nullable OpenAIClient openAIClient, AIDataService aiDataService) {
@@ -43,7 +47,7 @@ public class AIService {
     }
 
     /**
-     * 业主助手系统提示词
+     * 业主助手系统提示词：定义对话风格、职责范围及业务规则。
      */
     private static final String OWNER_SYSTEM_PROMPT = """
             你是一位专业、友好的物业管理助手，专门为小区业主提供服务。
@@ -82,7 +86,7 @@ public class AIService {
             """;
 
     /**
-     * 管理员助手系统提示词
+     * 管理员助手系统提示词：专注于数据分析、决策支持和风险识别。
      */
     private static final String ADMIN_SYSTEM_PROMPT = """
             你是一位专业的物业管理数据分析助手，为物业管理人员提供决策支持。
@@ -123,24 +127,27 @@ public class AIService {
             """;
 
     /**
-     * 处理用户消息并返回AI回复
+     * 执行智能对话
      *
-     * @param userMessage 用户输入的消息
-     * @param userId      用户ID
-     * @param userType    用户类型（OWNER/ADMIN）
-     * @return AI回复内容
+     * 逻辑流程：
+     * 1. 验证客户端可用性 -> 2. 根据身份选择 System Prompt -> 3. 提取用户关联业务数据（如欠费、余额）
+     * -> 4. 组装消息包发送至云端 -> 5. 解析并返回回复。
+     *
+     * @param userMessage 用户输入的消息文本
+     * @param userId      当前登录用户的主键 ID
+     * @param userType    用户角色标识（ADMIN 或 OWNER）
+     * @return AI 生成的回复内容
      */
     public String chat(String userMessage, Long userId, String userType) {
-        // 如果OpenAI客户端未配置，使用fallback模式
+        // 如果 API 客户端未初始化，则进入本地 Fallback 模式
         if (openAIClient == null) {
             return fallbackChat(userMessage, userId, userType);
         }
 
         try {
-            // 构建消息列表 (使用 List<ChatCompletionMessageParam>)
             List<ChatCompletionMessageParam> messages = new ArrayList<>();
 
-            // 1. 添加系统提示词
+            // 1. 设置角色提示词
             String systemPrompt = "ADMIN".equalsIgnoreCase(userType)
                     ? ADMIN_SYSTEM_PROMPT
                     : OWNER_SYSTEM_PROMPT;
@@ -151,24 +158,24 @@ public class AIService {
                             .content(systemPrompt)
                             .build()));
 
-            // 2. 添加上下文数据
+            // 2. 注入实时业务上下文（让 AI 能够“看见”该业主的实际欠费和余额）
             String contextData = buildContextData(userId, userType);
             if (!contextData.isEmpty()) {
                 messages.add(ChatCompletionMessageParam.ofChatCompletionSystemMessageParam(
                         ChatCompletionSystemMessageParam.builder()
                                 .role(ChatCompletionSystemMessageParam.Role.SYSTEM)
-                                .content("【当前数据上下文】\n" + contextData)
+                                .content("【当前动态业务数据】\n" + contextData)
                                 .build()));
             }
 
-            // 3. 添加用户消息
+            // 3. 用户消息
             messages.add(ChatCompletionMessageParam.ofChatCompletionUserMessageParam(
                     ChatCompletionUserMessageParam.builder()
                             .role(ChatCompletionUserMessageParam.Role.USER)
                             .content(userMessage)
                             .build()));
 
-            // 4. 构建请求参数
+            // 4. 配置模型参数并执行请求
             ChatCompletionCreateParams params = ChatCompletionCreateParams.builder()
                     .model(modelName)
                     .messages(messages)
@@ -176,75 +183,71 @@ public class AIService {
                     .maxTokens(1000)
                     .build();
 
-            // 5. 调用API
             ChatCompletion chatCompletion = openAIClient.chat().completions().create(params);
 
-            // 6. 提取回复
+            // 5. 提取并返回首选回复文本
             return chatCompletion.choices().stream()
                     .findFirst()
                     .flatMap(choice -> choice.message().content())
-                    .orElse("抱歉，AI服务暂时无法响应，请稍后重试。");
+                    .orElse("抱歉，AI 服务暂时无法响应，请稍后重试。");
 
         } catch (Exception e) {
-            System.err.println("[AIService] API调用失败: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("[AIService] 接口调用异常: " + e.getMessage());
             return fallbackChat(userMessage, userId, userType);
         }
     }
 
     /**
-     * 构建上下文数据
-     * 根据用户类型提供不同的数据上下文
+     * 构建动态上下文数据
+     * 从数据库中提取该用户的实时财务与资产状态，作为 AI 对话的“知识库”。
      */
     private String buildContextData(Long userId, String userType) {
         StringBuilder context = new StringBuilder();
 
         try {
             if ("ADMIN".equalsIgnoreCase(userType)) {
-                // 管理员：提供全局统计数据
+                // 管理员模式：关注收费率、总欠费等宏观指标
                 Map<String, Object> stats = aiDataService.getGlobalArrearsStatistics();
                 Map<String, Object> collectionRate = aiDataService.getCollectionRateStatistics();
 
-                context.append("全局统计数据：\n");
-                context.append("- 总欠费金额：").append(stats.get("totalUnpaidAmount")).append("元\n");
-                context.append("- 欠费账单数：").append(stats.get("unpaidCount")).append("条\n");
-                context.append("- 收费率：").append(String.format("%.2f%%",
+                context.append("小区全局统计：\n");
+                context.append("- 待缴总额：").append(stats.get("totalUnpaidAmount")).append(" 元\n");
+                context.append("- 待缴笔数：").append(stats.get("unpaidCount")).append(" 条\n");
+                context.append("- 当前收费率：").append(String.format("%.2f%%",
                         ((Number) collectionRate.get("rate")).doubleValue() * 100)).append("\n");
 
             } else {
-                // 业主：提供个人数据
+                // 业主模式：关注个人房产、欠费明细及卡片余额
                 Map<String, Object> arrears = aiDataService.getUserArrears(userId);
                 Map<String, Object> wallet = aiDataService.getUserWalletBalance(userId);
                 Map<String, Object> cards = aiDataService.getUserUtilityCards(userId);
 
-                context.append("您的账户信息：\n");
+                context.append("业主个人账户概况：\n");
 
-                // 欠费信息
                 if ((Boolean) arrears.get("hasArrears")) {
-                    context.append("- ⚠️ 您有 ").append(arrears.get("arrearsCount"))
-                            .append(" 笔未缴费用，总计 ").append(arrears.get("totalArrears")).append(" 元\n");
+                    context.append("- ⚠️ 待结账单：共 ").append(arrears.get("arrearsCount"))
+                            .append(" 笔，合计金额 ").append(arrears.get("totalArrears")).append(" 元\n");
                 } else {
-                    context.append("- ✅ 您没有欠费\n");
+                    context.append("- ✅ 状态提示：目前无待缴费用，信用良好。\n");
                 }
 
-                // 钱包余额
                 context.append("- 钱包余额：").append(wallet.get("balance")).append(" 元\n");
 
-                // 水电卡
                 int cardCount = (Integer) cards.get("cardCount");
                 if (cardCount > 0) {
-                    context.append("- 水电卡数量：").append(cardCount).append(" 张\n");
+                    context.append("- 已绑定卡片：").append(cardCount).append(" 张\n");
                 }
             }
         } catch (Exception e) {
-            System.err.println("[AIService] 构建上下文数据失败: " + e.getMessage());
+            System.err.println("[AIService] 上下文组装失败: " + e.getMessage());
         }
 
         return context.toString();
     }
 
     /**
-     * Fallback模式：当API未配置时使用规则匹配
+     * Fallback 对话模式（本地演示模式）
+     * 采用简单的关键词匹配算法，在离线或 API 异常时依然能提供基础的业务指引。
      */
     private String fallbackChat(String userMessage, Long userId, String userType) {
         // 基于关键词的简单规则匹配
@@ -252,14 +255,14 @@ public class AIService {
             try {
                 Map<String, Object> arrears = aiDataService.getUserArrears(userId);
                 if ((Boolean) arrears.get("hasArrears")) {
-                    return String.format("您当前有 %d 笔未缴费用，总计 %.2f 元。请及时缴纳以避免影响水电卡充值。" +
-                            "您可以在【费用管理】或【我的钱包】中进行缴费。",
+                    return String.format("您当前有 %d 笔未缴费用，总计 %.2f 元。请注意，欠缴物业费会导致水电卡充值功能锁定。" +
+                            "您可前往【费用管理】模块进行结算。",
                             arrears.get("arrearsCount"), arrears.get("totalArrears"));
                 } else {
-                    return "您目前没有欠费，账单状态良好！";
+                    return "检测到您当前并无欠费，感谢您的支持！";
                 }
             } catch (Exception e) {
-                return "查询欠费信息失败，请稍后重试。";
+                return "抱歉，系统暂时无法同步您的财务数据，建议稍后查看个人账单。";
             }
         } else if (userMessage.contains("缴费")) {
             return "您可以在【费用管理】或者【我的钱包】中进行缴费。支持微信、支付宝及余额支付。如果您的余额不足，请先充值。";

@@ -3,27 +3,27 @@ package site.aronnax.entity;
 import java.time.LocalDateTime;
 
 /**
- * User Wallet Entity
- * Corresponds to user_wallets table
- * One wallet per user
+ * 用户钱包实体类
+ * 对应数据库 user_wallets 表
+ * 每个用户拥有一个唯一的钱包，用于存储余额及充值统计。
  *
  * @author Aronnax (Li Linhan)
  * @version 1.0
  */
 public class UserWallet {
 
-    private Long walletId; // Primary key
-    private Long userId; // User ID (one-to-one relationship)
-    private Double balance; // Current balance
-    private Double totalRecharged; // Total amount ever recharged
-    private LocalDateTime createdAt; // Creation time
-    private LocalDateTime updatedAt; // Update time
+    private Long walletId; // 钱包主键ID
+    private Long userId; // 关联的用户ID (与用户表一对一关系)
+    private Double balance; // 当前钱包可用余额
+    private Double totalRecharged; // 历史充值总额度 (累计值)
+    private LocalDateTime createdAt; // 钱包创建时间
+    private LocalDateTime updatedAt; // 钱包最近更新时间
 
-    // No-arg constructor
+    // 无参构造器
     public UserWallet() {
     }
 
-    // Full constructor
+    // 全参构造器
     public UserWallet(Long walletId, Long userId, Double balance, Double totalRecharged,
             LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.walletId = walletId;

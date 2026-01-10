@@ -19,13 +19,7 @@ import site.aronnax.service.FeeService;
 
 /**
  * 费用服务实现类
- * 实现账单和缴费管理业务逻辑
- *
- * 核心功能：
- * 1. 创建单笔或批量账单
- * 2. 标记账单为已支付
- * 3. 查询欠费列表
- * 4. 检查房产是否存在欠费（关键拦截逻辑）
+ * 处理各类物业账单的生命周期，包含自动计费策略及关键的欠费拦截校验。
  *
  * @author Aronnax (Li Linhan)
  */
@@ -44,11 +38,9 @@ public class FeeServiceImpl implements FeeService {
 
     /**
      * 创建单笔账单
-     *
-     * @param propertyId 房产ID
-     * @param feeType    费用类型
-     * @param amount     账单金额
-     * @return 账单ID（当前实现可能返回null，但不影响业务）
+     * 逻辑：根据费用类型（feeType）自动分配支付路径。
+     * - 水电费 -> 对应的卡扣模式（WATER_CARD/ELEC_CARD）
+     * - 物业/取暖 -> 钱包支付（WALLET）
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -57,16 +49,16 @@ public class FeeServiceImpl implements FeeService {
         fee.setpId(propertyId);
         fee.setFeeType(feeType);
         fee.setAmount(amount);
-        fee.setIsPaid(0); // Unpaid by default
+        fee.setIsPaid(0); // 默认未缴费
         fee.setPayDate(null);
 
-        // Auto-assign payment method based on fee type
+        // 计费策略：根据类型自动设定支付方式
         if ("WATER_FEE".equals(feeType)) {
             fee.setPaymentMethod("WATER_CARD");
         } else if ("ELECTRICITY_FEE".equals(feeType)) {
             fee.setPaymentMethod("ELEC_CARD");
         } else {
-            fee.setPaymentMethod("WALLET"); // Default (Property/Heating)
+            fee.setPaymentMethod("WALLET"); // 物业费与取暖费通常由钱包结算
         }
 
         return feeDAO.insert(fee);
@@ -74,12 +66,7 @@ public class FeeServiceImpl implements FeeService {
 
     /**
      * 批量创建账单
-     * 为多个房产创建相同类型和金额的账单
-     *
-     * @param propertyIds 房产ID列表
-     * @param feeType     费用类型
-     * @param amount      账单金额
-     * @return 成功创建的账单数量
+     * 使用循环迭代生成，并在事务保护下确保数据一致性。
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -87,23 +74,13 @@ public class FeeServiceImpl implements FeeService {
         int count = 0;
         for (Long propertyId : propertyIds) {
             createFee(propertyId, feeType, amount);
-            // Check if insertion was successful (assuming insert returns null/id, though
-            // new impl returns null always for now..
-            // The logic assumes creating ID. Since current DAO returns null, count might be
-            // off if checked against null.
-            // Since insert throws exception if fails (jdbcTemplate), we can assume success
-            // here or check if we updated DAO to return ID.
-            // But let's just increment count for now.
             count++;
         }
         return count;
     }
 
     /**
-     * 标记账单为已支付
-     *
-     * @param feeId 账单ID
-     * @return 是否成功
+     * 标记缴费成功
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -123,6 +100,11 @@ public class FeeServiceImpl implements FeeService {
         return feeDAO.findUnpaidFees();
     }
 
+    /**
+     * 组装欠费汇总表
+     * 核心逻辑：执行多库联查。
+     * 从 FeeDAO 获取单据 -> 从 PropertyDAO 获取房屋位置 -> 从 UserDAO 获取业主身份。
+     */
     @Override
     public List<Map<String, Object>> getArrearsList() {
         List<Map<String, Object>> arrearsList = new ArrayList<>();
@@ -131,7 +113,7 @@ public class FeeServiceImpl implements FeeService {
         for (Fee fee : unpaidFees) {
             Map<String, Object> arrearsInfo = new HashMap<>();
 
-            // Get property information
+            // 1. 获取房产位置快照
             Property property = propertyDAO.findById(fee.getpId());
             if (property != null) {
                 arrearsInfo.put("property_id", property.getpId());
@@ -139,7 +121,7 @@ public class FeeServiceImpl implements FeeService {
                 arrearsInfo.put("unit_no", property.getUnitNo());
                 arrearsInfo.put("room_no", property.getRoomNo());
 
-                // Get owner information
+                // 2. 溯产业主联系方式
                 if (property.getUserId() != null) {
                     User owner = userDAO.findById(property.getUserId());
                     if (owner != null) {
@@ -149,7 +131,7 @@ public class FeeServiceImpl implements FeeService {
                 }
             }
 
-            // Add fee information
+            // 3. 填充账单基础信息
             arrearsInfo.put("fee_id", fee.getfId());
             arrearsInfo.put("fee_type", fee.getFeeType());
             arrearsInfo.put("amount", fee.getAmount());
@@ -163,27 +145,18 @@ public class FeeServiceImpl implements FeeService {
     }
 
     /**
-     * 检查房产是否存在未缴费用
-     *
-     * 用于水电卡充值拦截逻辑
-     *
-     * @param propertyId 房产ID
-     * @return true表示存在欠费，false表示无欠费
+     * 【关键业务点】检查房产是否存在任意欠费项目
+     * 该逻辑用于物理拦截：一旦检测到欠费，业主的所有卡片购买动作都将被拒绝。
      */
     @Override
     public boolean checkArrears(Long propertyId) {
         List<Fee> unpaidFees = feeDAO.findUnpaidByPropertyId(propertyId);
-        return !unpaidFees.isEmpty(); // Returns true if there are unpaid fees
+        return !unpaidFees.isEmpty();
     }
 
     /**
-     * 检查房产是否存在钱包类费用欠费
-     *
-     * 钱包类费用：payment_method = 'WALLET' 的费用
-     * 主要包括物业费和取暖费
-     *
-     * @param propertyId 房产ID
-     * @return true表示存在钱包类欠费，false表示无欠费
+     * 检查房产是否存在“钱包支付类”欠费
+     * 主要针对物业费和取暖费。系统设计允许一定程度的卡内消费，但阻止在欠费下的充值行为。
      */
     @Override
     public boolean checkWalletArrears(Long propertyId) {

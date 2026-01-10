@@ -17,16 +17,13 @@ import site.aronnax.entity.UserWallet;
 import site.aronnax.entity.UtilityCard;
 
 /**
- * AI数据分析服务
- * 为AI助手提供数据查询和分析能力
+ * AI 数据分析助手支撑服务
+ * 专门为 AI 服务层提供定制化的数据视图，将复杂的底层库操作封装为 AI 易于解析的 Map 结构。
  *
- * 功能：
- * 1. 查询用户欠费信息
- * 2. 查询账单详情
- * 3. 查询钱包和水电卡余额
- * 4. 统计数据分析（管理员专用）
- *
- * @author Aronnax (Li Linhan)
+ * 核心任务：
+ * 1. 跨 DAO 整合：汇聚房产、账单、钱包多库数据。
+ * 2. 数据降维：提取关键统计指标（如总欠费、收费率）。
+ * 3. 结果翻译：将数据库的枚举/状态码自动转换为 AI 对话所要求的自然语言描述（中文）。
  */
 @Service
 public class AIDataService {
@@ -45,36 +42,38 @@ public class AIDataService {
     }
 
     /**
-     * 查询用户的欠费信息
+     * 获取指定用户的完整欠费画像
+     * 用于 AI 助手精准提醒业主其欠款详情。
      *
-     * @param userId 用户ID
-     * @return 欠费信息Map
+     * @param userId 业主用户 ID
+     * @return 包含是否有欠费、总额、笔数及明细列表的视图数据
      */
     public Map<String, Object> getUserArrears(Long userId) {
         Map<String, Object> result = new HashMap<>();
 
-        // 获取用户的所有房产
+        // 1. 穿透房产层：业主可能拥有多套房
         List<Property> properties = propertyDAO.findByUserId(userId);
 
         if (properties.isEmpty()) {
             result.put("hasArrears", false);
-            result.put("message", "该用户没有房产");
+            result.put("message", "系统中未查询到该用户的关联房产档案");
             return result;
         }
 
-        // 查询所有房产的欠费
+        // 2. 扁平化整合：统计各房产下的所有未缴单据
         List<Map<String, Object>> arrearsList = properties.stream()
                 .flatMap(p -> feeDAO.findUnpaidByPropertyId(p.getpId()).stream())
                 .map(fee -> {
                     Map<String, Object> feeInfo = new HashMap<>();
                     feeInfo.put("feeId", fee.getfId());
-                    feeInfo.put("feeType", translateFeeType(fee.getFeeType()));
+                    feeInfo.put("feeType", translateFeeType(fee.getFeeType())); // 自动转换为“物业费”等中文
                     feeInfo.put("amount", fee.getAmount());
                     feeInfo.put("createdAt", fee.getCreatedAt());
                     return feeInfo;
                 })
                 .collect(Collectors.toList());
 
+        // 3. 计算聚合指标
         double totalArrears = arrearsList.stream()
                 .mapToDouble(f -> (Double) f.get("amount"))
                 .sum();
@@ -88,14 +87,10 @@ public class AIDataService {
     }
 
     /**
-     * 查询用户钱包余额
-     *
-     * @param userId 用户ID
-     * @return 钱包余额信息
+     * 获取业主钱包概况
      */
     public Map<String, Object> getUserWalletBalance(Long userId) {
         Map<String, Object> result = new HashMap<>();
-
         UserWallet wallet = walletDAO.findByUserId(userId);
 
         if (wallet == null) {
@@ -106,30 +101,24 @@ public class AIDataService {
             result.put("balance", wallet.getBalance());
             result.put("totalRecharged", wallet.getTotalRecharged());
         }
-
         return result;
     }
 
     /**
-     * 查询用户水电卡余额
-     *
-     * @param userId 用户ID
-     * @return 水电卡余额信息
+     * 获取关联房产的水电卡镜像数据
+     * AI 将根据此数据告知业主是否需要充值。
      */
     public Map<String, Object> getUserUtilityCards(Long userId) {
         Map<String, Object> result = new HashMap<>();
-
-        // 获取用户的所有房产
         List<Property> properties = propertyDAO.findByUserId(userId);
 
         List<Map<String, Object>> cards = properties.stream()
                 .flatMap(p -> {
-                    // 查询该房产的水电卡
                     List<UtilityCard> utilityCards = utilityCardDAO.findByPropertyId(p.getpId());
                     return utilityCards.stream().map(card -> {
                         Map<String, Object> cardInfo = new HashMap<>();
                         cardInfo.put("cardId", card.getCardId());
-                        cardInfo.put("cardType", translateCardType(card.getCardType()));
+                        cardInfo.put("cardType", translateCardType(card.getCardType())); // “水卡”或“电卡”
                         cardInfo.put("balance", card.getBalance());
                         cardInfo.put("propertyInfo",
                                 p.getBuildingNo() + "栋" + p.getUnitNo() + "单元" + p.getRoomNo() + "室");
@@ -140,28 +129,25 @@ public class AIDataService {
 
         result.put("cards", cards);
         result.put("cardCount", cards.size());
-
         return result;
     }
 
     /**
-     * 获取全局欠费统计（管理员专用）
-     *
-     * @return 欠费统计信息
+     * 【宏观分析】获取全区欠费统计（管理员 AI 模式专用）
+     * 辅助 AI 识别当前运营风险点。
      */
     public Map<String, Object> getGlobalArrearsStatistics() {
         Map<String, Object> result = new HashMap<>();
 
-        // 获取所有未缴费用
         List<Fee> unpaidFees = feeDAO.findUnpaidFees();
 
-        // 按费用类型统计
+        // 维度统计：按费用类型汇总欠费金额
         Map<String, Double> feeTypeStats = unpaidFees.stream()
                 .collect(Collectors.groupingBy(
                         Fee::getFeeType,
                         Collectors.summingDouble(Fee::getAmount)));
 
-        // 转换为中文
+        // 类型转换与翻译
         Map<String, Double> translatedStats = feeTypeStats.entrySet().stream()
                 .collect(Collectors.toMap(
                         e -> translateFeeType(e.getKey()),
@@ -175,7 +161,7 @@ public class AIDataService {
         result.put("unpaidCount", unpaidFees.size());
         result.put("feeTypeStatistics", translatedStats);
 
-        // 获取欠费最多的楼栋
+        // 关联空间维度：排名欠费严重的楼栋（来自 PropertyDAO 联合查询）
         List<Map<String, Object>> buildingArrears = feeDAO.getArrearsByBuilding();
         result.put("topArrearsBuildings", buildingArrears);
 
@@ -183,16 +169,14 @@ public class AIDataService {
     }
 
     /**
-     * 获取收费率统计（管理员专用）
-     *
-     * @return 收费率信息
+     * 获取收费率全景
      */
     public Map<String, Object> getCollectionRateStatistics() {
         return feeDAO.getCollectionRate();
     }
 
     /**
-     * 翻译费用类型为中文
+     * 业务字典翻译：将后端常量映射为语义化的中文
      */
     private String translateFeeType(String feeType) {
         Map<String, String> typeMap = Map.of(
@@ -204,7 +188,7 @@ public class AIDataService {
     }
 
     /**
-     * 翻译卡片类型为中文
+     * 水电卡类型翻译
      */
     private String translateCardType(String cardType) {
         Map<String, String> typeMap = Map.of(

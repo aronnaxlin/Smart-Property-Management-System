@@ -32,44 +32,44 @@ public class UtilityCardServiceImpl implements UtilityCardService {
     }
 
     /**
-     * 水电卡充值
+     * 水电卡充值功能实现
      *
-     * 【核心业务逻辑】：充值前必须检查欠费状态
+     * 【核心风控环节】：
+     * 1. 身份/卡号核验。
+     * 2. 调用 FeeService.checkWalletArrears 进行欠费渗透检查。
+     * 3. 若存在物业费、取暖费欠缴，即便支付渠道通畅，系统也将抛出 IllegalStateException 阻止入账。
      *
-     * @param cardId 水电卡ID
+     * @param cardId 卡片 ID
      * @param amount 充值金额
-     * @return 充值是否成功
-     * @throws IllegalStateException 当存在欠费时抛出
+     * @return 是否充值成功
+     * @throws IllegalStateException 当检测到该房产名下有待缴物业费用时，触发行政锁定
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean topUp(Long cardId, Double amount) {
-        // Get card information
+        // 第一阶段：卡片合法性核验
         UtilityCard card = utilityCardDAO.findById(cardId);
         if (card == null) {
-            throw new RuntimeException("水电卡不存在");
+            throw new RuntimeException("系统未找到指定的水电卡档案");
         }
 
-        // 【关键拦截】检查该房产是否存在钱包类欠费
-        // 如果存在未缴的物业费或取暖费，禁止充值
+        // 第二阶段：【关键拦截】执行“欠费锁定”策略
+        // 逻辑：如果存在逾期未缴的物业费或取暖费，则硬拦截充值
         boolean hasArrears = feeService.checkWalletArrears(card.getpId());
         if (hasArrears) {
-            throw new IllegalStateException("您有未缴的物业费/取暖费，请先缴清欠款后再充值");
+            throw new IllegalStateException("【操作拦截】检索到您名下仍有未结清的物业费/取暖费单项。根据规定，请先缴清欠款后再操作水电充值。");
         }
 
-        // Proceed with top-up
+        // 第三阶段：资金结算
         Double currentBalance = card.getBalance() != null ? card.getBalance() : 0.0;
         card.setBalance(currentBalance + amount);
-        card.setLastTopup(LocalDateTime.now());
+        card.setLastTopup(LocalDateTime.now()); // 更新最后充值时间，用于审计
 
         return utilityCardDAO.update(card);
     }
 
     /**
-     * 查询水电卡余额
-     *
-     * @param cardId 水电卡ID
-     * @return 卡片余额，不存在时返回null
+     * 获取指定水电卡的当前余额
      */
     @Override
     public Double getCardBalance(Long cardId) {

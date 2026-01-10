@@ -1,8 +1,8 @@
 package site.aronnax.service;
 
 /**
- * Utility Card Service Interface
- * Provides business logic for utility card management
+ * 水电卡业务接口
+ * 负责虚拟卡片的余额充值、消耗及状态查询。
  *
  * @author Aronnax (Li Linhan)
  * @version 1.0
@@ -10,21 +10,21 @@ package site.aronnax.service;
 public interface UtilityCardService {
 
     /**
-     * Top up utility card
-     * CRITICAL: Must check for arrears before allowing top-up
+     * 水电卡充值
+     * 【重要业务拦截】：充值动作执行前，必须通过 FeeService 校验该房产是否存在欠费。
+     * 若存在欠费，充值功能将处于锁定状态。
      *
-     * @param cardId Card ID
-     * @param amount Top-up amount
-     * @return true if successful, false if blocked by arrears
-     * @throws IllegalStateException if property has unpaid fees
+     * @param cardId 卡片 ID
+     * @param amount 充值金额
+     * @return 是否充值成功
      */
     boolean topUp(Long cardId, Double amount);
 
     /**
-     * Get card balance
+     * 获取指定卡片的当前余额
      *
-     * @param cardId Card ID
-     * @return Current balance
+     * @param cardId 卡片 ID
+     * @return 实时余额
      */
     Double getCardBalance(Long cardId);
 }

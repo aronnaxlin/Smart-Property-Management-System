@@ -11,6 +11,10 @@ import site.aronnax.dao.UserDAO;
 import site.aronnax.dto.LoginRequest;
 import site.aronnax.entity.User;
 
+/**
+ * 身份认证控制器
+ * 负责系统的登录、权限校验预检及登出逻辑。
+ */
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -22,58 +26,55 @@ public class AuthController {
     }
 
     /**
-     * 用户登录接口
-     * 验证用户名和密码，成功后将用户信息存入Session
+     * 用户统一登录入口
      *
-     * @param loginRequest 登录请求对象，包含username和password
-     * @param session      HTTP会话对象，用于存储登录状态
-     * @return Result包装的User对象，登录失败时返回错误信息
+     * 逻辑流程：
+     * 1. 基础非空校验 -> 2. 字段规范校验（长度限制） -> 3. 数据库凭据比对 -> 4. Session 状态持久化。
+     *
+     * @param loginRequest 包含 username 和 password 的 DTO
+     * @param session      用于记录登录态的 HTTP 会话
+     * @return 登录用户实体（脱敏后）或错误信息
      */
     @PostMapping("/login")
     public Result<User> login(@RequestBody LoginRequest loginRequest, HttpSession session) {
-        // 输入验证：检查用户名是否为空
+        // 第一阶段：输入完整性守卫
         if (loginRequest.getUsername() == null || loginRequest.getUsername().trim().isEmpty()) {
-            return Result.error("用户名不能为空");
+            return Result.error("请输入您的用户名");
         }
-
-        // 输入验证：检查密码是否为空
         if (loginRequest.getPassword() == null || loginRequest.getPassword().trim().isEmpty()) {
-            return Result.error("密码不能为空");
+            return Result.error("请输入登录密码");
         }
 
-        // 输入验证：用户名长度检查（防止恶意超长输入）
+        // 第二阶段：参数规范拦截（防御性编程，防止超长字符攻击）
         if (loginRequest.getUsername().length() > 50) {
-            return Result.error("用户名格式不正确");
+            return Result.error("用户名格式非法");
         }
 
-        // 数据库查询：通过用户名和密码查找用户
-        // 注意：JdbcTemplate已使用PreparedStatement，可防止SQL注入
-        // TODO: 未来应使用BCrypt等加密方式存储密码，而非明文
+        // 第三阶段：凭据校验
+        // 安全提示：PreparedStatement 已由 JdbcTemplate 自动处理，可防御 SQL 注入。
+        // [安全演进建议]：当前演示版使用明文对比，生产环境中应采用 BCrypt 强盐哈希算法。
         User user = userDAO.findByUserNameAndPassword(
                 loginRequest.getUsername().trim(),
                 loginRequest.getPassword());
 
-        // 登录成功：将用户信息存入Session
+        // 第四阶段：会话管理
         if (user != null) {
+            // 将用户对象注入 Session，开启会话生命周期
             session.setAttribute("user", user);
             return Result.success(user);
         }
 
-        // 登录失败：返回统一的错误消息（避免泄露用户是否存在）
-        return Result.error("用户名或密码错误");
+        // 统一提示：登录失败时不透露是“用户名不存在”还是“密码错误”，提高安全性
+        return Result.error("用户名或登录密码不匹配");
     }
 
     /**
-     * 用户登出接口
-     * 清除当前Session，结束用户登录状态
-     *
-     * @param session HTTP会话对象
-     * @return 成功消息
+     * 安全登出
+     * 立即销毁服务器端会话，确保账户安全。
      */
     @PostMapping("/logout")
     public Result<String> logout(HttpSession session) {
-        // 销毁当前Session，清除所有登录状态
         session.invalidate();
-        return Result.success("登出成功");
+        return Result.success("您已安全退出系统");
     }
 }

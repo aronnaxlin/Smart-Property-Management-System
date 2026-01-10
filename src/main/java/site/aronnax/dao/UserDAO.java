@@ -13,8 +13,8 @@ import org.springframework.stereotype.Repository;
 import site.aronnax.entity.User;
 
 /**
- * 用户数据访问对象 (Data Access Object)
- * 使用 Spring JdbcTemplate 实现
+ * 用户数据访问对象 (DAO)
+ * 实现对用户档案（业主与管理员）的 CRUD 操作，并提供登录校验及模糊搜索接口。
  *
  * @author Aronnax (Li Linhan)
  */
@@ -27,6 +27,10 @@ public class UserDAO {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    /**
+     * 用户表行映射器
+     * 将数据库记录转换为 User 实体对象，处理了创建时间和更新时间的时间戳转换。
+     */
     @SuppressWarnings("null")
     private final RowMapper<User> userRowMapper = (rs, rowNum) -> {
         User user = new User();
@@ -47,15 +51,14 @@ public class UserDAO {
     };
 
     /**
-     * 插入新用户
+     * 插入新用户记录
+     * 使用 KeyHolder 模式捕获并返回数据库自动生成的 user_id。
      *
-     * @param user 用户对象
-     * @return 生成的用户ID
+     * @param user 待插入的用户实体
+     * @return 数据库生成的自增 ID
      */
     public Long insert(User user) {
         String sql = "INSERT INTO users (user_name, password, user_type, name, gender, phone) VALUES (?, ?, ?, ?, ?, ?)";
-
-        // 使用KeyHolder获取自动生成的主键
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
         jdbcTemplate.update(connection -> {
@@ -69,15 +72,14 @@ public class UserDAO {
             return ps;
         }, keyHolder);
 
-        // 返回生成的ID
         Number key = keyHolder.getKey();
         return key != null ? key.longValue() : null;
     }
 
     /**
-     * 删除用户
-     *
-     * @param userId 用户ID
+     * 根据主键ID物理删除用户
+     * 
+     * @param userId 目标用户ID
      * @return 是否删除成功
      */
     public boolean deleteById(Long userId) {
@@ -86,9 +88,9 @@ public class UserDAO {
     }
 
     /**
-     * 更新用户信息
-     *
-     * @param user 用户对象
+     * 更新用户档案信息
+     * 
+     * @param user 包含新信息的实体 (必须包含 userId)
      * @return 是否更新成功
      */
     public boolean update(User user) {
@@ -98,10 +100,7 @@ public class UserDAO {
     }
 
     /**
-     * 根据ID查询用户
-     *
-     * @param userId 用户ID
-     * @return 用户对象，不存在时返回null
+     * 根据ID查询单个用户详情
      */
     @SuppressWarnings("null")
     public User findById(Long userId) {
@@ -111,9 +110,7 @@ public class UserDAO {
     }
 
     /**
-     * 查询所有用户
-     *
-     * @return 用户列表
+     * 获取系统中所有注册用户的列表
      */
     @SuppressWarnings("null")
     public List<User> findAll() {
@@ -122,10 +119,9 @@ public class UserDAO {
     }
 
     /**
-     * 根据用户名查询用户
-     *
-     * @param userName 用户名
-     * @return 用户对象，不存在时返回null
+     * 根据登录账号 (user_name) 查找用户
+     * 
+     * @param userName 账号字符串
      */
     @SuppressWarnings("null")
     public User findByUserName(String userName) {
@@ -135,14 +131,12 @@ public class UserDAO {
     }
 
     /**
-     * 登录验证：根据用户名和密码查询用户
+     * 核心业务：登录凭据验证
+     * 通过账号和密码(当前为明文)进行匹配查询。
      *
-     * 注意：此方法使用PreparedStatement，已防止SQL注入
-     * TODO: 未来应使用加密密码而非明文比对
-     *
-     * @param userName 用户名
-     * @param password 密码（明文）
-     * @return 用户对象，验证失败时返回null
+     * @param userName 登录账号
+     * @param password 登录密码
+     * @return 匹配成功的用户对象，否则返回 null
      */
     @SuppressWarnings("null")
     public User findByUserNameAndPassword(String userName, String password) {
@@ -153,10 +147,10 @@ public class UserDAO {
 
     /**
      * 模糊搜索用户
-     * 支持按姓名或电话号码搜索
+     * 用于后台管理搜索框，支持同时按姓名或手机号进行部分匹配 (LIKE)。
      *
-     * @param keyword 搜索关键词
-     * @return 符合条件的用户列表
+     * @param keyword 搜索关键词 (可以是姓名片段或号码片段)
+     * @return 符合匹配条件的用户集合
      */
     @SuppressWarnings("null")
     public List<User> searchByKeyword(String keyword) {
