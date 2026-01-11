@@ -321,7 +321,7 @@ public class PropertyController {
     }
 
     /**
-     * 辅助方法: 为房产信息enrichi业主姓名
+     * 辅助方法: 为房产信息enrichi业主姓名和水电卡ID
      */
     private Map<String, Object> enrichPropertyWithOwnerName(Property property) {
         Map<String, Object> map = new HashMap<>();
@@ -340,6 +340,22 @@ public class PropertyController {
         } else {
             map.put("ownerName", "-");
         }
+
+        // 查询水电卡ID
+        List<UtilityCard> cards = utilityCardDAO.findByPropertyId(property.getpId());
+        Long waterCardId = null;
+        Long electricityCardId = null;
+
+        for (UtilityCard card : cards) {
+            if ("WATER".equals(card.getCardType())) {
+                waterCardId = card.getCardId();
+            } else if ("ELECTRICITY".equals(card.getCardType())) {
+                electricityCardId = card.getCardId();
+            }
+        }
+
+        map.put("waterCardId", waterCardId);
+        map.put("electricityCardId", electricityCardId);
 
         return map;
     }

@@ -66,11 +66,18 @@ function renderPropertyTable(properties) {
     const tbody = document.getElementById('propertyTableBody');
 
     if (!properties || properties.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-dim">暂无数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-dim">暂无数据</td></tr>';
         return;
     }
 
-    tbody.innerHTML = properties.map(p => `
+    tbody.innerHTML = properties.map(p => {
+        // 格式化水电卡ID显示
+        const cardInfo = [];
+        if (p.waterCardId) cardInfo.push(`水卡:${p.waterCardId}`);
+        if (p.electricityCardId) cardInfo.push(`电卡:${p.electricityCardId}`);
+        const cardDisplay = cardInfo.length > 0 ? cardInfo.join('<br>') : '-';
+
+        return `
         <tr>
             <td>${p.pId}</td>
             <td>${p.buildingNo}</td>
@@ -79,12 +86,14 @@ function renderPropertyTable(properties) {
             <td>${p.area}</td>
             <td><span class="status-badge status-${p.pStatus}">${translateStatus(p.pStatus)}</span></td>
             <td>${p.ownerName || '-'}</td>
+            <td>${cardDisplay}</td>
             <td>
                 <button class="sci-btn" onclick="showEditPropertyModal(${p.pId})" style="margin-right: 5px;">编辑</button>
                 <button class="sci-btn danger" onclick="deleteProperty(${p.pId})">删除</button>
             </td>
         </tr>
-    `).join('');
+        `;
+    }).join('');
 }
 
 /**
@@ -124,6 +133,11 @@ function showCreatePropertyModal() {
     document.getElementById('propertyModalStatus').value = '';
     document.getElementById('propertyModalOwner').value = '';
 
+    const cardInfoElement = document.getElementById('propertyModalCardInfo');
+    if (cardInfoElement) {
+        cardInfoElement.value = '创建后自动生成';
+    }
+
     const backdrop = document.getElementById('propertyModalBackdrop');
     if (backdrop) {
         backdrop.style.display = 'block';
@@ -147,6 +161,23 @@ async function showEditPropertyModal(propertyId) {
             document.getElementById('propertyModalArea').value = property.area;
             document.getElementById('propertyModalStatus').value = property.pStatus;
             document.getElementById('propertyModalOwner').value = property.userId || '';
+
+            // 查询并显示水电卡信息
+            const cardsRes = await window.api.get(`/property/list`);
+            if (cardsRes.code === 200) {
+                const propWithCards = cardsRes.data.find(p => p.pId === propertyId);
+                if (propWithCards) {
+                    const cardInfo = [];
+                    if (propWithCards.waterCardId) cardInfo.push(`水卡ID: ${propWithCards.waterCardId}`);
+                    if (propWithCards.electricityCardId) cardInfo.push(`电卡ID: ${propWithCards.electricityCardId}`);
+
+                    const cardDisplay = cardInfo.length > 0 ? cardInfo.join(', ') : '暂无水电卡';
+                    const cardInfoElement = document.getElementById('propertyModalCardInfo');
+                    if (cardInfoElement) {
+                        cardInfoElement.value = cardDisplay;
+                    }
+                }
+            }
 
             const backdrop = document.getElementById('propertyModalBackdrop');
             if (backdrop) {
