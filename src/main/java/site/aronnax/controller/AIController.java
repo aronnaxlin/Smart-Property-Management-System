@@ -59,9 +59,15 @@ public class AIController {
             // 获取会话锚点：识别当前操作者的权限范围
             User currentUser = (User) session.getAttribute("user");
 
-            // 权限后退机制：未登录状态下默认作为“普通业主”进行有限咨询
-            Long userId = currentUser != null ? currentUser.getUserId() : 1L;
-            String userType = currentUser != null ? currentUser.getUserType() : "OWNER";
+            // 强制登录验证 - 修复安全漏洞
+            if (currentUser == null) {
+                return Result.error("请先登录后再使用 AI 助手");
+            }
+
+            // 严格使用会话中的用户信息，防止参数注入攻击
+            // 绝不信任客户端传递的 userId 或 userType 参数
+            Long userId = currentUser.getUserId();
+            String userType = currentUser.getUserType();
 
             // 执行核心推理链路
             String response = aiService.chat(message.trim(), userId, userType);

@@ -89,8 +89,13 @@ public class UserOwnerController {
     public Result<List<User>> searchUsers(
             @RequestParam(value = "keyword", defaultValue = "") String keyword) {
 
+        // 防御性编程：确保 keyword 永远不为 null
+        if (keyword == null) {
+            keyword = "";
+        }
+
         // 防止恶意超长输入
-        if (keyword != null && keyword.length() > 50) {
+        if (keyword.length() > 50) {
             return Result.error("搜索关键词超出长度限制");
         }
 
@@ -228,8 +233,13 @@ public class UserOwnerController {
     @GetMapping("/api/owner/search")
     public Result<List<Map<String, Object>>> searchOwners(
             @RequestParam(value = "keyword", defaultValue = "") String keyword) {
+        // 防御性编程：确保 keyword 永远不为 null
+        if (keyword == null) {
+            keyword = "";
+        }
+
         // 安全前置：限制关键字长度，防止扫描探测
-        if (keyword != null && keyword.length() > 50) {
+        if (keyword.length() > 50) {
             return Result.error("搜索词超出长度限制");
         }
 

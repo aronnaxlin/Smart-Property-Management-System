@@ -45,4 +45,71 @@
         border: 1px solid var(--border-color);
         border-bottom-left-radius: 4px;
     }
+
+    /* Markdown styling for bot messages */
+    .bubble h1, .bubble h2, .bubble h3, .bubble h4 {
+        margin-top: 0.8em;
+        margin-bottom: 0.5em;
+        font-weight: 600;
+    }
+    .bubble h1 { font-size: 1.3em; }
+    .bubble h2 { font-size: 1.2em; }
+    .bubble h3 { font-size: 1.1em; }
+    .bubble p {
+        margin: 0.5em 0;
+    }
+    .bubble ul, .bubble ol {
+        margin: 0.5em 0;
+        padding-left: 1.5em;
+    }
+    .bubble li {
+        margin: 0.3em 0;
+    }
+    .bubble code {
+        background: var(--bg-surface);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9em;
+        color: #d63384;
+    }
+    .bubble pre {
+        background: var(--bg-surface);
+        padding: 12px;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin: 0.8em 0;
+        border-left: 3px solid var(--primary-cyan);
+    }
+    .bubble pre code {
+        background: transparent;
+        padding: 0;
+        color: inherit;
+    }
+    .bubble strong {
+        font-weight: 600;
+        color: var(--text-main);
+    }
+    .bubble em {
+        font-style: italic;
+        color: var(--text-secondary);
+    }
+    .bubble blockquote {
+        margin: 0.8em 0;
+        padding-left: 1em;
+        border-left: 3px solid var(--border-color);
+        color: var(--text-secondary);
+    }
+    .bubble a {
+        color: var(--primary-cyan);
+        text-decoration: none;
+    }
+    .bubble a:hover {
+        text-decoration: underline;
+    }
+    .bubble hr {
+        border: none;
+        border-top: 1px solid var(--border-color);
+        margin: 1em 0;
+    }
 </style>

@@ -71,11 +71,11 @@ public class AIService {
             - 对于欠费情况，委婉提醒并引导缴费
             - 回答要具体、实用，包含具体的操作步骤
 
-            【重要规则】
-            1. 只能查询和回答当前登录业主的信息
-            2. 不能执行缴费等操作，只能提供指引
-            3. 遇到无法处理的问题，建议联系物业前台（电话：8888-1234）
-            4. 保护业主隐私，不泄露其他业主信息
+            【严格的权限限制】
+            1. ⚠️ 你只能访问当前登录业主的个人数据，绝对禁止查询其他业主信息
+            2. 如果业主询问"所有业主"、"其他业主"、"全小区"等全局数据，必须回复："为保护业主隐私，我只能查询您本人的信息"
+            3. 不能执行任何写操作（缴费、充值等），只能提供操作指引
+            4. 遇到无法处理的问题，建议联系物业前台（电话：8888-1234）
             5. 如果业主询问欠费情况，主动查询并告知详细信息
 
             【常见问题处理】
@@ -83,6 +83,7 @@ public class AIService {
             - 充值问题：说明需先清缴欠费才能充值水电卡
             - 报修问题：提供物业热线和前台地址
             - 投诉建议：记录并承诺转达给物业管理处
+            - 其他业主信息查询：委婉拒绝并说明隐私保护政策
             """;
 
     /**
@@ -97,12 +98,12 @@ public class AIService {
             3. 识别高风险欠费楼栋和业主
             4. 辅助制定催缴策略和管理决策
 
-            【你的能力】
-            - 查询全小区的欠费统计
-            - 分析收费率和收入分布
-            - 查询特定业主的详细信息
-            - 生成数据报告和趋势分析
-            - 识别异常数据和风险点
+            【管理员权限能力】
+            - ✅ 查询全小区的欠费统计和收费率
+            - ✅ 分析收入分布和楼栋风险
+            - ✅ 查看业主概览（脱敏）和入住率
+            - ✅ 生成数据报告和趋势分析
+            - ✅ 识别异常数据和风险点
 
             【沟通风格】
             - 使用专业的管理术语和数据分析语言
@@ -112,18 +113,18 @@ public class AIService {
             - 使用图表、百分比等可视化描述
 
             【重要规则】
-            1. 保护业主隐私，仅在必要时提供具体业主信息
+            1. 遵守数据合规要求，避免批量导出敏感个人信息
             2. 提供的建议应基于数据分析，避免主观臆断
-            3. 强调合规和人性化管理
-            4. 识别数据异常时主动提醒
-            5. 提供决策建议时考虑可行性和成本
+            3. 强调合规和人性化管理，催缴时注意方式方法
+            4. 识别数据异常时主动提醒并建议核查
+            5. 提供决策建议时考虑可行性、成本和社会影响
 
             【分析重点】
-            - 收费率趋势：关注低于80%的情况
-            - 欠费集中度：识别欠费超过3个月的业主
-            - 楼栋风险：标注欠费率超过30%的楼栋
-            - 费用类型：分析哪类费用欠缴最严重
-            - 季节性规律：识别缴费的时间规律
+            - 收费率趋势：关注低于80%的情况并分析原因
+            - 欠费集中度：识别欠费超过3个月的业主，建议重点跟进
+            - 楼栋风险：标注欠费率超过30%的楼栋，分析区域特征
+            - 费用类型：分析哪类费用欠缴最严重，优化收费策略
+            - 季节性规律：识别缴费的时间规律，优化催缴时机
             """;
 
     /**
@@ -206,40 +207,94 @@ public class AIService {
 
         try {
             if ("ADMIN".equalsIgnoreCase(userType)) {
-                // 管理员模式：关注收费率、总欠费等宏观指标
-                Map<String, Object> stats = aiDataService.getGlobalArrearsStatistics();
-                Map<String, Object> collectionRate = aiDataService.getCollectionRateStatistics();
+                // 管理员模式：提供全局数据和分析能力
+                context.append("=== 管理员全局数据视图 ===\n\n");
 
-                context.append("小区全局统计：\n");
-                context.append("- 待缴总额：").append(stats.get("totalUnpaidAmount")).append(" 元\n");
-                context.append("- 待缴笔数：").append(stats.get("unpaidCount")).append(" 条\n");
-                context.append("- 当前收费率：").append(String.format("%.2f%%",
-                        ((Number) collectionRate.get("rate")).doubleValue() * 100)).append("\n");
+                // 1. 全局欠费统计
+                Map<String, Object> stats = aiDataService.getGlobalArrearsStatistics(userType);
+                if (!Boolean.TRUE.equals(stats.get("permissionDenied"))) {
+                    context.append("【小区欠费统计】\n");
+                    context.append("- 待缴总额：").append(stats.get("totalUnpaidAmount")).append(" 元\n");
+                    context.append("- 待缴笔数：").append(stats.get("unpaidCount")).append(" 条\n");
+                }
+
+                // 2. 收费率分析
+                Map<String, Object> collectionRate = aiDataService.getCollectionRateStatistics(userType);
+                if (!Boolean.TRUE.equals(collectionRate.get("permissionDenied"))) {
+                    context.append("- 当前收费率：").append(String.format("%.2f%%",
+                            ((Number) collectionRate.get("rate")).doubleValue() * 100)).append("\n");
+                }
+
+                // 3. 业主概览
+                Map<String, Object> ownersOverview = aiDataService.getAllOwnersOverview(userType);
+                if (!Boolean.TRUE.equals(ownersOverview.get("permissionDenied"))) {
+                    context.append("\n【房产入住情况】\n");
+                    context.append("- 房产总数：").append(ownersOverview.get("totalProperties")).append("\n");
+                    context.append("- 已入住：").append(ownersOverview.get("occupiedProperties")).append("\n");
+                    context.append("- 空置：").append(ownersOverview.get("vacantProperties")).append("\n");
+                    context.append("- 入住率：").append(ownersOverview.get("occupancyRate")).append("\n");
+                }
+
+                // 4. 风险楼栋分析
+                Map<String, Object> riskBuildings = aiDataService.getRiskBuildingAnalysis(userType);
+                if (!Boolean.TRUE.equals(riskBuildings.get("permissionDenied"))) {
+                    context.append("\n【高风险楼栋】\n");
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> topRisk = (List<Map<String, Object>>) riskBuildings
+                            .get("topRiskBuildings");
+                    if (topRisk != null && !topRisk.isEmpty()) {
+                        for (int i = 0; i < Math.min(3, topRisk.size()); i++) {
+                            Map<String, Object> bldg = topRisk.get(i);
+                            context.append("  ").append(i + 1).append(". ")
+                                    .append(bldg.get("building_no")).append("号楼：")
+                                    .append(bldg.get("unpaid_count")).append("笔欠费\n");
+                        }
+                    }
+                }
 
             } else {
-                // 业主模式：关注个人房产、欠费明细及卡片余额
-                Map<String, Object> arrears = aiDataService.getUserArrears(userId);
-                Map<String, Object> wallet = aiDataService.getUserWalletBalance(userId);
-                Map<String, Object> cards = aiDataService.getUserUtilityCards(userId);
+                // 业主模式：仅提供个人数据，强调权限边界
+                context.append("=== 您的个人账户信息 ===\n");
+                context.append("（提示：您只能查询本人数据，无法访问其他业主信息）\n\n");
 
-                context.append("业主个人账户概况：\n");
-
-                if ((Boolean) arrears.get("hasArrears")) {
+                // 1. 个人欠费情况
+                Map<String, Object> arrears = aiDataService.getUserArrears(userId, userId, userType);
+                if (Boolean.TRUE.equals(arrears.get("permissionDenied"))) {
+                    context.append("- ⚠️ 权限受限：").append(arrears.get("message")).append("\n");
+                } else if (Boolean.TRUE.equals(arrears.get("hasArrears"))) {
+                    context.append("【待缴账单】\n");
                     context.append("- ⚠️ 待结账单：共 ").append(arrears.get("arrearsCount"))
                             .append(" 笔，合计金额 ").append(arrears.get("totalArrears")).append(" 元\n");
                 } else {
-                    context.append("- ✅ 状态提示：目前无待缴费用，信用良好。\n");
+                    context.append("【账单状态】\n");
+                    context.append("- ✅ 状态良好：目前无待缴费用\n");
                 }
 
-                context.append("- 钱包余额：").append(wallet.get("balance")).append(" 元\n");
+                // 2. 钱包余额
+                Map<String, Object> wallet = aiDataService.getUserWalletBalance(userId);
+                context.append("\n【钱包余额】\n");
+                context.append("- 当前余额：").append(wallet.get("balance")).append(" 元\n");
 
+                // 3. 水电卡信息
+                Map<String, Object> cards = aiDataService.getUserUtilityCards(userId);
                 int cardCount = (Integer) cards.get("cardCount");
+                context.append("\n【水电卡】\n");
                 if (cardCount > 0) {
-                    context.append("- 已绑定卡片：").append(cardCount).append(" 张\n");
+                    context.append("- 已绑定卡片数：").append(cardCount).append(" 张\n");
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> cardList = (List<Map<String, Object>>) cards.get("cards");
+                    for (Map<String, Object> card : cardList) {
+                        context.append("  · ").append(card.get("cardType")).append("：")
+                                .append(card.get("balance")).append("元（")
+                                .append(card.get("propertyInfo")).append("）\n");
+                    }
+                } else {
+                    context.append("- 暂无绑定水电卡\n");
                 }
             }
         } catch (Exception e) {
             System.err.println("[AIService] 上下文组装失败: " + e.getMessage());
+            e.printStackTrace();
         }
 
         return context.toString();
@@ -250,11 +305,22 @@ public class AIService {
      * 采用简单的关键词匹配算法，在离线或 API 异常时依然能提供基础的业务指引。
      */
     private String fallbackChat(String userMessage, Long userId, String userType) {
+        // 权限检查 - 业主询问全局数据
+        if (!"ADMIN".equalsIgnoreCase(userType) &&
+                (userMessage.contains("所有业主") || userMessage.contains("全小区") ||
+                        userMessage.contains("其他业主") || userMessage.contains("整体") ||
+                        userMessage.contains("全局"))) {
+            return "为保护业主隐私，我只能查询您本人的账单和财务信息。如需了解小区整体情况，请联系物业管理处。";
+        }
+
         // 基于关键词的简单规则匹配
         if (userMessage.contains("欠费") || userMessage.contains("账单")) {
             try {
-                Map<String, Object> arrears = aiDataService.getUserArrears(userId);
-                if ((Boolean) arrears.get("hasArrears")) {
+                Map<String, Object> arrears = aiDataService.getUserArrears(userId, userId, userType);
+                if (Boolean.TRUE.equals(arrears.get("permissionDenied"))) {
+                    return "权限不足：" + arrears.get("message");
+                }
+                if (Boolean.TRUE.equals(arrears.get("hasArrears"))) {
                     return String.format("您当前有 %d 笔未缴费用，总计 %.2f 元。请注意，欠缴物业费会导致水电卡充值功能锁定。" +
                             "您可前往【费用管理】模块进行结算。",
                             arrears.get("arrearsCount"), arrears.get("totalArrears"));
@@ -270,9 +336,14 @@ public class AIService {
             return "报修请拨打物业热线 8888-1234，或者在前台填写报修单。我们将尽快安排维修师傅上门。";
         } else if (userMessage.contains("水电") || userMessage.contains("充值")) {
             return "水电充值请前往【水电卡管理】页面。请注意，如果您有未缴的物业费或取暖费，系统会限制您的充值功能，请优先结清账单。";
+        } else if ("ADMIN".equalsIgnoreCase(userType) &&
+                (userMessage.contains("统计") || userMessage.contains("收费率") || userMessage.contains("分析"))) {
+            return "管理员模式：您可以询问全小区的收费率、欠费统计、风险楼栋分析等数据。" +
+                    "\n\n💡 提示：当前使用演示模式，配置 OPENAI_API_KEY 后将获得更智能的数据分析能力。";
         }
 
-        return "我是您的智能物业助手。您可以问我关于缴费、报修、欠费查询等问题。" +
+        String roleDesc = "ADMIN".equalsIgnoreCase(userType) ? "管理员" : "业主";
+        return "我是您的智能物业助手（" + roleDesc + "模式）。您可以问我关于缴费、报修、欠费查询等问题。" +
                 "\n\n💡 提示：当前使用演示模式，配置 OPENAI_API_KEY 后将获得更智能的AI服务。";
     }
 }

@@ -45,7 +45,9 @@ function translateFeeType(type) {
         'PROPERTY_FEE': '物业费',
         'HEATING_FEE': '取暖费',
         'WATER': '水费',
+        'WATER_FEE': '水费',
         'ELECTRICITY': '电费',
+        'ELECTRICITY_FEE': '电费',
         'PARKING_FEE': '停车费'
     };
     return map[type] || type;

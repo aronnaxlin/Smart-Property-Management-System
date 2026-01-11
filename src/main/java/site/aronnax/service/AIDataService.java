@@ -49,7 +49,27 @@ public class AIDataService {
      * @return 包含是否有欠费、总额、笔数及明细列表的视图数据
      */
     public Map<String, Object> getUserArrears(Long userId) {
+        return getUserArrears(userId, userId, "OWNER");
+    }
+
+    /**
+     * 获取指定用户的完整欠费画像（带权限控制）
+     *
+     * @param userId          业主用户 ID
+     * @param requestUserId   请求用户 ID
+     * @param requestUserType 请求用户类型
+     * @return 包含是否有欠费、总额、笔数及明细列表的视图数据
+     */
+    public Map<String, Object> getUserArrears(Long userId, Long requestUserId, String requestUserType) {
         Map<String, Object> result = new HashMap<>();
+
+        // 权限校验：业主只能查询自己的数据
+        if (!"ADMIN".equalsIgnoreCase(requestUserType) && !userId.equals(requestUserId)) {
+            result.put("hasArrears", false);
+            result.put("message", "权限不足：您只能查询自己的账单信息");
+            result.put("permissionDenied", true);
+            return result;
+        }
 
         // 1. 穿透房产层：业主可能拥有多套房
         List<Property> properties = propertyDAO.findByUserId(userId);
@@ -135,9 +155,18 @@ public class AIDataService {
     /**
      * 【宏观分析】获取全区欠费统计（管理员 AI 模式专用）
      * 辅助 AI 识别当前运营风险点。
+     *
+     * @param requestUserType 请求用户类型
      */
-    public Map<String, Object> getGlobalArrearsStatistics() {
+    public Map<String, Object> getGlobalArrearsStatistics(String requestUserType) {
         Map<String, Object> result = new HashMap<>();
+
+        // 权限校验：仅管理员可访问全局统计
+        if (!"ADMIN".equalsIgnoreCase(requestUserType)) {
+            result.put("permissionDenied", true);
+            result.put("message", "此功能仅对管理员开放");
+            return result;
+        }
 
         List<Fee> unpaidFees = feeDAO.findUnpaidFees();
 
@@ -169,10 +198,80 @@ public class AIDataService {
     }
 
     /**
-     * 获取收费率全景
+     * 获取收费率全景（带权限控制）
+     *
+     * @param requestUserType 请求用户类型
      */
-    public Map<String, Object> getCollectionRateStatistics() {
+    public Map<String, Object> getCollectionRateStatistics(String requestUserType) {
+        Map<String, Object> result = new HashMap<>();
+
+        // 权限校验：仅管理员可访问
+        if (!"ADMIN".equalsIgnoreCase(requestUserType)) {
+            result.put("permissionDenied", true);
+            result.put("message", "此功能仅对管理员开放");
+            return result;
+        }
+
         return feeDAO.getCollectionRate();
+    }
+
+    /**
+     * 【管理员专用】获取所有业主概览（脱敏）
+     * 返回业主总数、活跃业主等宏观指标，不包含敏感个人信息
+     *
+     * @param requestUserType 请求用户类型
+     */
+    public Map<String, Object> getAllOwnersOverview(String requestUserType) {
+        Map<String, Object> result = new HashMap<>();
+
+        // 权限校验：仅管理员可访问
+        if (!"ADMIN".equalsIgnoreCase(requestUserType)) {
+            result.put("permissionDenied", true);
+            result.put("message", "业主信息查询仅对管理员开放");
+            return result;
+        }
+
+        // 获取所有房产信息以统计业主
+        List<Property> allProperties = propertyDAO.findAll();
+        long totalProperties = allProperties.size();
+        long occupiedProperties = allProperties.stream()
+                .filter(p -> p.getUserId() != null)
+                .count();
+
+        result.put("totalProperties", totalProperties);
+        result.put("occupiedProperties", occupiedProperties);
+        result.put("vacantProperties", totalProperties - occupiedProperties);
+        result.put("occupancyRate",
+                totalProperties > 0 ? String.format("%.1f%%", (occupiedProperties * 100.0 / totalProperties)) : "0%");
+
+        return result;
+    }
+
+    /**
+     * 【管理员专用】获取风险楼栋分析
+     * 识别欠费率高的楼栋，辅助管理决策
+     *
+     * @param requestUserType 请求用户类型
+     */
+    public Map<String, Object> getRiskBuildingAnalysis(String requestUserType) {
+        Map<String, Object> result = new HashMap<>();
+
+        // 权限校验：仅管理员可访问
+        if (!"ADMIN".equalsIgnoreCase(requestUserType)) {
+            result.put("permissionDenied", true);
+            result.put("message", "楼栋分析功能仅对管理员开放");
+            return result;
+        }
+
+        // 获取欠费楼栋统计
+        List<Map<String, Object>> buildingArrears = feeDAO.getArrearsByBuilding();
+
+        result.put("buildingCount", buildingArrears.size());
+        result.put("topRiskBuildings", buildingArrears.stream()
+                .limit(5) // 仅返回前5个高风险楼栋
+                .collect(Collectors.toList()));
+
+        return result;
     }
 
     /**

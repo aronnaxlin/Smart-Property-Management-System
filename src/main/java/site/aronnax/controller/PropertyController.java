@@ -18,8 +18,10 @@ import org.springframework.web.bind.annotation.RestController;
 import site.aronnax.common.Result;
 import site.aronnax.dao.PropertyDAO;
 import site.aronnax.dao.UserDAO;
+import site.aronnax.dao.UtilityCardDAO;
 import site.aronnax.entity.Property;
 import site.aronnax.entity.User;
+import site.aronnax.entity.UtilityCard;
 
 /**
  * 房产管理控制器
@@ -33,10 +35,12 @@ public class PropertyController {
 
     private final PropertyDAO propertyDAO;
     private final UserDAO userDAO;
+    private final UtilityCardDAO utilityCardDAO;
 
-    public PropertyController(PropertyDAO propertyDAO, UserDAO userDAO) {
+    public PropertyController(PropertyDAO propertyDAO, UserDAO userDAO, UtilityCardDAO utilityCardDAO) {
         this.propertyDAO = propertyDAO;
         this.userDAO = userDAO;
+        this.utilityCardDAO = utilityCardDAO;
     }
 
     /**
@@ -189,7 +193,32 @@ public class PropertyController {
 
             // 插入新房产
             propertyDAO.insert(property);
-            return Result.success("创建成功");
+
+            // 查询刚创建的房产ID（通过楼栋-单元-房号查询）
+            Property newProperty = propertyDAO.findByRoomInfo(
+                    property.getBuildingNo(),
+                    property.getUnitNo(),
+                    property.getRoomNo());
+
+            if (newProperty != null && newProperty.getpId() != null) {
+                // 自动创建水卡
+                UtilityCard waterCard = new UtilityCard();
+                waterCard.setpId(newProperty.getpId());
+                waterCard.setCardType("WATER");
+                waterCard.setBalance(0.00);
+                waterCard.setLastTopup(null);
+                utilityCardDAO.insert(waterCard);
+
+                // 自动创建电卡
+                UtilityCard electricityCard = new UtilityCard();
+                electricityCard.setpId(newProperty.getpId());
+                electricityCard.setCardType("ELECTRICITY");
+                electricityCard.setBalance(0.00);
+                electricityCard.setLastTopup(null);
+                utilityCardDAO.insert(electricityCard);
+            }
+
+            return Result.success("创建成功，已自动生成水卡和电卡");
         } catch (Exception e) {
             return Result.error("创建房产失败：" + e.getMessage());
         }

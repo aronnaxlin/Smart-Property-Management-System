@@ -118,10 +118,10 @@ CREATE TABLE wallet_transactions (
     CONSTRAINT chk_trans_type CHECK (trans_type IN ('RECHARGE', 'PAY_FEE', 'TOPUP_CARD'))
 ) DEFAULT CHARSET=utf8mb4 COMMENT='钱包交易记录表';
 
--- 创建数据库用户（可选，根据需要调整）
-# CREATE USER IF NOT EXISTS 'propertyAdmin'@'%' IDENTIFIED BY 'realAronnaxlin917-';
-# GRANT ALL PRIVILEGES ON property_management.* TO 'propertyAdmin'@'%';
-# FLUSH PRIVILEGES;
+-- 创建数据库用户
+CREATE USER IF NOT EXISTS 'propertyAdmin'@'%' IDENTIFIED BY 'realAronnaxlin917-';
+GRANT ALL PRIVILEGES ON property_management.* TO 'propertyAdmin'@'%';
+FLUSH PRIVILEGES;
 
 -- 完成提示
 SELECT 'Database schema created successfully with wallet system!' as Status;

@@ -1,4 +1,7 @@
-# Maven
+
+# ============================================
+# Maven Build Artifacts
+# ============================================
 target/
 pom.xml.tag
 pom.xml.releaseBackup
@@ -10,18 +13,39 @@ buildNumber.properties
 .mvn/timing.properties
 .mvn/wrapper/maven-wrapper.jar
 
-# Compiled Java classes
+# ============================================
+# Java Compiled Files
+# ============================================
 *.class
+hs_err_pid*
+replay_pid*
 
-# Log files
-*.log
+# ============================================
+# IDE - IntelliJ IDEA
+# ============================================
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
 
-# Package files
-*.jar
-*.war
-*.ear
+# ============================================
+# IDE - VS Code
+# ============================================
+.vscode/
+*.code-workspace
 
-# macOS system files
+# ============================================
+# IDE - Eclipse
+# ============================================
+.classpath
+.project
+.settings/
+bin/
+
+# ============================================
+# macOS System Files
+# ============================================
 .DS_Store
 .AppleDouble
 .LSOverride
@@ -35,27 +59,72 @@ Icon
 .VolumeIcon.icns
 .com.apple.timemachine.donotpresent
 
-# IDE - IntelliJ IDEA
-.idea/
-*.iml
-*.iws
-*.ipr
-out/
+# ============================================
+# Python (for SQL generation scripts)
+# ============================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
 
-# IDE - VS Code
-.vscode/
+# ============================================
+# Logs
+# ============================================
+*.log
+logs/
+*.log.*
 
-# Project specific: Generated CSV files
-*.csv
+# ============================================
+# Package Files
+# ============================================
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
 
-# Project specific: Generated SQL files
-!*.sql
-
-# Project specific: README.md
-!README.md
-
-# Java crash logs
-hs_err_pid*
-
-# AI Config
+# ============================================
+# Project Specific - AI Configuration
+# ============================================
 .env
+.env.local
+.env.*.local
+!.env_template
+
+# ============================================
+# Project Specific - Temporary/Generated Files
+# ============================================
+*.csv
+*.tmp
+*.bak
+*.swp
+*~
+
+# ============================================
+# Project Specific - Gemini Artifacts
+# ============================================
+.gemini/
+
+# ============================================
+# SQL Files - Keep schema and data, ignore temp
+# ============================================
+# Keep all SQL files by default
+!sql/*.sql
+# But ignore temporary/backup SQL files
+sql/*_backup.sql
+sql/*_temp.sql
+sql/diagnostic_*.sql
+sql/migration_*.sql
+
+# ============================================
+# Documentation - Keep essential docs
+# ============================================
+!README.md
+!docs/**/*.md
+# Ignore generated documentation
+docs/generated/
