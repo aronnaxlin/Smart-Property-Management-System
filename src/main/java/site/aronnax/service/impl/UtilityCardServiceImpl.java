@@ -25,10 +25,13 @@ public class UtilityCardServiceImpl implements UtilityCardService {
 
     private final UtilityCardDAO utilityCardDAO;
     private final FeeService feeService;
+    private final site.aronnax.dao.PropertyDAO propertyDAO;
 
-    public UtilityCardServiceImpl(UtilityCardDAO utilityCardDAO, FeeService feeService) {
+    public UtilityCardServiceImpl(UtilityCardDAO utilityCardDAO, FeeService feeService,
+            site.aronnax.dao.PropertyDAO propertyDAO) {
         this.utilityCardDAO = utilityCardDAO;
         this.feeService = feeService;
+        this.propertyDAO = propertyDAO;
     }
 
     /**
@@ -75,5 +78,45 @@ public class UtilityCardServiceImpl implements UtilityCardService {
     public Double getCardBalance(Long cardId) {
         UtilityCard card = utilityCardDAO.findById(cardId);
         return card != null ? card.getBalance() : null;
+    }
+
+    /**
+     * 获取用户所有水电卡信息
+     * 包含房产位置、卡类型、余额等信息
+     */
+    @Override
+    public java.util.List<java.util.Map<String, Object>> getUserCards(Long userId) {
+        java.util.List<java.util.Map<String, Object>> result = new java.util.ArrayList<>();
+
+        // 1. 查询用户所有房产
+        java.util.List<site.aronnax.entity.Property> properties = propertyDAO.findByUserId(userId);
+
+        // 2. 对每套房产，查询其水电卡
+        for (site.aronnax.entity.Property property : properties) {
+            java.util.List<UtilityCard> cards = utilityCardDAO.findByPropertyId(property.getpId());
+
+            // 3. 构建返回信息
+            for (UtilityCard card : cards) {
+                java.util.Map<String, Object> cardInfo = new java.util.HashMap<>();
+                cardInfo.put("cardId", card.getCardId());
+                cardInfo.put("cardType", card.getCardType());
+                cardInfo.put("balance", card.getBalance());
+                cardInfo.put("propertyId", property.getpId());
+                cardInfo.put("buildingNo", property.getBuildingNo());
+                cardInfo.put("unitNo", property.getUnitNo());
+                cardInfo.put("roomNo", property.getRoomNo());
+                result.add(cardInfo);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * 根据卡片ID查询水电卡
+     */
+    @Override
+    public UtilityCard findById(Long cardId) {
+        return utilityCardDAO.findById(cardId);
     }
 }

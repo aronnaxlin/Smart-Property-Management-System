@@ -1,19 +1,66 @@
 <div class="row">
+    <!-- 业主视角：我的水电卡列表 -->
+    <div class="col-12" id="ownerCardsSection" style="display: none;">
+        <div class="sci-card">
+            <div class="card-header">
+                <h3>我的水电卡</h3>
+            </div>
+            <table class="sci-table">
+                <thead>
+                    <tr>
+                        <th>房产位置</th>
+                        <th>卡类型</th>
+                        <th>卡号</th>
+                        <th>余额(¥)</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="myCardsBody">
+                    <tr>
+                        <td colspan="5" class="text-center text-dim">加载中...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="row">
     <div class="col-6">
         <div class="sci-card">
             <div class="card-header">
                 <h3>水电卡充值</h3>
             </div>
-            <div class="form-group" style="margin-bottom:15px">
-                <label>卡号:</label>
-                <input type="number" id="ucCardId" class="sci-input" placeholder="输入卡号...">
+
+            <!-- 业主视角：下拉选择卡片 -->
+            <div id="ownerTopupForm" style="display: none;">
+                <div class="form-group" style="margin-bottom:15px">
+                    <label>选择卡片:</label>
+                    <select id="ucSelectCard" class="sci-input">
+                        <option value="">请选择要充值的卡片...</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:15px">
+                    <label>充值金额:</label>
+                    <input type="number" id="ucOwnerAmount" class="sci-input" placeholder="0.00">
+                </div>
+                <button class="sci-btn" onclick="topUpMyCard()">立即充值</button>
+                <div id="ucOwnerResult" style="margin-top:15px; min-height:20px;"></div>
             </div>
-            <div class="form-group" style="margin-bottom:15px">
-                <label>充值金额:</label>
-                <input type="number" id="ucAmount" class="sci-input" placeholder="0.00">
+
+            <!-- 管理员视角：输入卡号 -->
+            <div id="adminTopupForm" style="display: none;">
+                <div class="form-group" style="margin-bottom:15px">
+                    <label>卡号:</label>
+                    <input type="number" id="ucAdminCardId" class="sci-input" placeholder="输入卡号...">
+                </div>
+                <div class="form-group" style="margin-bottom:15px">
+                    <label>充值金额:</label>
+                    <input type="number" id="ucAdminAmount" class="sci-input" placeholder="0.00">
+                </div>
+                <button class="sci-btn" onclick="adminTopUpCard()">立即充值</button>
+                <div id="ucAdminResult" style="margin-top:15px; min-height:20px;"></div>
             </div>
-            <button class="sci-btn" onclick="topUpCard()">立即充值</button>
-            <div id="ucResult" style="margin-top:15px; min-height:20px;"></div>
         </div>
     </div>
 

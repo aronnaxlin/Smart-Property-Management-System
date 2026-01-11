@@ -27,4 +27,21 @@ public interface UtilityCardService {
      * @return 实时余额
      */
     Double getCardBalance(Long cardId);
+
+    /**
+     * 获取用户所有水电卡信息
+     * 返回用户名下所有房产的水电卡，包含房产位置信息
+     *
+     * @param userId 用户 ID
+     * @return 水电卡信息列表（包含卡号、类型、余额、房产位置）
+     */
+    java.util.List<java.util.Map<String, Object>> getUserCards(Long userId);
+
+    /**
+     * 根据卡片ID查询水电卡
+     *
+     * @param cardId 卡片 ID
+     * @return 水电卡实体
+     */
+    site.aronnax.entity.UtilityCard findById(Long cardId);
 }

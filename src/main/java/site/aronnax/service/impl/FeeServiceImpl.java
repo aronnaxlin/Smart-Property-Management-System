@@ -29,11 +29,14 @@ public class FeeServiceImpl implements FeeService {
     private final FeeDAO feeDAO;
     private final PropertyDAO propertyDAO;
     private final UserDAO userDAO;
+    private final site.aronnax.service.WalletService walletService;
 
-    public FeeServiceImpl(FeeDAO feeDAO, PropertyDAO propertyDAO, UserDAO userDAO) {
+    public FeeServiceImpl(FeeDAO feeDAO, PropertyDAO propertyDAO, UserDAO userDAO,
+            site.aronnax.service.WalletService walletService) {
         this.feeDAO = feeDAO;
         this.propertyDAO = propertyDAO;
         this.userDAO = userDAO;
+        this.walletService = walletService;
     }
 
     /**
@@ -80,7 +83,10 @@ public class FeeServiceImpl implements FeeService {
     }
 
     /**
-     * 标记缴费成功
+     * 标记/处理缴费
+     * 根据费用的支付方式选择处理逻辑：
+     * - WALLET: 调用钱包服务扣款并记录交易
+     * - 其他: 仅标记为已支付（线下缴费等）
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -90,6 +96,12 @@ public class FeeServiceImpl implements FeeService {
             return false;
         }
 
+        // 如果是钱包支付，调用钱包服务处理（包含扣款和交易记录）
+        if ("WALLET".equals(fee.getPaymentMethod())) {
+            return walletService.payFeeFromWallet(feeId);
+        }
+
+        // 非钱包支付（如线下、卡片支付），仅标记为已支付
         fee.setIsPaid(1);
         fee.setPayDate(LocalDateTime.now());
         return feeDAO.update(fee);
