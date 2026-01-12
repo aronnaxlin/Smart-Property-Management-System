@@ -38,28 +38,62 @@
     letter-spacing: -0.3px;
 }
 
-/* Forms & Inputs */
+/* Forms & Inputs - Material Design 3 Filled Style */
 .sci-input {
-    background: #FFFFFF;
-    border: 1px solid var(--border-color);
+    /* 基础样式 - 使用Material Design填充式输入框 */
+    background: #F5F5F5; /* 浅灰底色，符合Material Design填充式输入框规范 */
+    border: none; /* 移除边框，使用底部边线 */
+    border-bottom: 2px solid #E0E0E0; /* 底部边线，未聚焦状态使用中性灰 */
     color: var(--text-main);
-    padding: 10px 14px;
-    border-radius: var(--radius-sm);
+    padding: 14px 16px 12px; /* 上下非对称padding，为label留出空间 */
+    border-radius: 8px 8px 0 0; /* 顶部圆角，底部直角，符合Material填充式规范 */
     font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.5;
     outline: none;
-    transition: all 0.2s;
+    transition: all 0.25s cubic-bezier(0.4, 0.0, 0.2, 1); /* Material Design标准缓动函数 */
     width: 100%;
     box-sizing: border-box;
-    font-size: 0.95rem;
+
+    /* 防止在深色背景上不可见 */
+    -webkit-appearance: none;
+    appearance: none;
 }
 
+/* 聚焦状态 - 强调视觉反馈 */
 .sci-input:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px var(--primary-light);
+    background: #EEEEEE; /* 聚焦时背景稍深，增强交互反馈 */
+    border-bottom-color: var(--primary-color); /* 底部边线变为主色调 */
+    box-shadow: 0 1px 0 0 var(--primary-color); /* 添加主色调阴影加强底部边线 */
 }
 
+/* Placeholder样式 - 符合Material规范的标签效果 */
 .sci-input::placeholder {
-    color: var(--text-dim);
+    color: #9E9E9E; /* Material Grey 500，确保可读性 */
+    font-size: 0.95rem;
+    opacity: 1; /* 确保跨浏览器一致性 */
+    transition: all 0.25s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* 悬停状态 - 提供微妙的视觉提示 */
+.sci-input:hover:not(:focus) {
+    background: #ECECEC;
+    border-bottom-color: #BDBDBD; /* 悬停时底部边线稍深 */
+}
+
+/* 禁用状态 */
+.sci-input:disabled {
+    background: #FAFAFA;
+    border-bottom-color: #F5F5F5;
+    color: #BDBDBD;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* 搭配label使用时的样式优化 */
+.sci-input:not(:placeholder-shown) {
+    padding-top: 18px; /* 当有内容时，为浮动label留出更多空间 */
+    padding-bottom: 8px;
 }
 
 /* Buttons */
