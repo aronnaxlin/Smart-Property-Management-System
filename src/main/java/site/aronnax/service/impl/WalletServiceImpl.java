@@ -38,14 +38,16 @@ public class WalletServiceImpl implements WalletService {
     private final FeeDAO feeDAO;
     private final UtilityCardDAO cardDAO;
     private final PropertyDAO propertyDAO;
+    private final site.aronnax.service.FeeService feeService;
 
     public WalletServiceImpl(UserWalletDAO walletDAO, WalletTransactionDAO transactionDAO, FeeDAO feeDAO,
-            UtilityCardDAO cardDAO, PropertyDAO propertyDAO) {
+            UtilityCardDAO cardDAO, PropertyDAO propertyDAO, site.aronnax.service.FeeService feeService) {
         this.walletDAO = walletDAO;
         this.transactionDAO = transactionDAO;
         this.feeDAO = feeDAO;
         this.cardDAO = cardDAO;
         this.propertyDAO = propertyDAO;
+        this.feeService = feeService;
     }
 
     /**
@@ -96,18 +98,32 @@ public class WalletServiceImpl implements WalletService {
      * 内部余额支付（缴费）
      *
      * 逻辑闭环：
-     * 1. 验证账单是否处于待缴状态 -> 2. 验证余额充足性 -> 3. 执行双向更新（余额减、账单结） -> 4. 存证。
+     * 1. 验证账单是否处于待缴状态 -> 2. 验证角色权限 -> 3. 验证余额充足性 -> 4. 执行双向更新（余额减、账单结） -> 5. 存证。
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public boolean payFeeFromWallet(Long feeId) {
+    public boolean payFeeFromWallet(Long feeId, jakarta.servlet.http.HttpSession session) {
         // 第一步：单据状态前校验
         Fee fee = feeDAO.findById(feeId);
-        if (fee == null || fee.getIsPaid() == 1 || !"WALLET".equals(fee.getPaymentMethod())) {
+        if (fee == null || fee.getIsPaid() == 1) {
             return false;
         }
 
-        // 第二步：余额充足性判定
+        // 第二步：【新增】角色权限验证
+        String userType = (String) session.getAttribute("userType");
+        if ("ADMIN".equals(userType)) {
+            // 管理员不能代缴水电费
+            if ("WATER_FEE".equals(fee.getFeeType()) || "ELECTRICITY_FEE".equals(fee.getFeeType())) {
+                throw new IllegalArgumentException("管理员不能代缴水费和电费，请指导业主使用水电卡缴费");
+            }
+        }
+
+        // 第三步：验证 payment_method（必须为 WALLET）
+        if (!"WALLET".equals(fee.getPaymentMethod())) {
+            return false;
+        }
+
+        // 第四步：余额充足性判定
         Property property = propertyDAO.findById(fee.getpId());
         if (property == null || property.getUserId() == null) {
             return false;
@@ -122,7 +138,7 @@ public class WalletServiceImpl implements WalletService {
         if (currentBalance < fee.getAmount())
             return false;
 
-        // 第三阶段：资金扣减与单据标记（受强事务保护）
+        // 第五阶段：资金扣减与单据标记（受强事务保护）
         Double newBalance = currentBalance - fee.getAmount();
         wallet.setBalance(newBalance);
 
@@ -159,7 +175,16 @@ public class WalletServiceImpl implements WalletService {
         }
 
         // 【安全拦截】检查该用户在全区名下的财务健康度
-        if (checkWalletArrears(userId)) {
+        // 遍历用户所有房产，检查是否存在欠费
+        List<Property> properties = propertyDAO.findByUserId(userId);
+        boolean hasArrears = false;
+        for (Property property : properties) {
+            if (feeService.checkWalletArrears(property.getpId())) {
+                hasArrears = true;
+                break;
+            }
+        }
+        if (hasArrears) {
             throw new IllegalStateException("【缴费受阻】检测到您当前存在逾期未缴的物业费/取暖费单项，系统已锁定水电卡充值通道。");
         }
 
@@ -198,24 +223,6 @@ public class WalletServiceImpl implements WalletService {
         }
 
         return cardUpdated;
-    }
-
-    /**
-     * 递归检索用户名下所有房产的财务状态
-     * 判定准则：任意一套房产存在 payment_method = 'WALLET' 且未支付的账单，即判定为欠费。
-     */
-    @Override
-    public boolean checkWalletArrears(Long userId) {
-        List<Property> properties = propertyDAO.findByUserId(userId);
-        for (Property property : properties) {
-            List<Fee> fees = feeDAO.findByPropertyId(property.getpId());
-            for (Fee fee : fees) {
-                if (fee.getIsPaid() == 0 && "WALLET".equals(fee.getPaymentMethod())) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     @Override

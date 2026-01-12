@@ -28,18 +28,20 @@
     </div>
 </div>
 
-<div class="row">
-    <div class="col-6">
+<div id="adminFeeCreateSection" class="row">
+    <div class="col-12">
         <div class="sci-card">
             <div class="card-header">
-                <h3>创建单笔账单</h3>
+                <h3>创建账单 (Create Bill)</h3>
             </div>
-            <div class="form-group" style="margin-bottom:15px">
-                <label>房产ID:</label>
-                <input type="number" id="createFeePid" class="sci-input">
+
+            <div class="form-group" style="margin-bottom: 15px">
+                <label>房产ID (Property ID):</label>
+                <input type="number" id="createFeePid" class="sci-input" placeholder="房产ID">
             </div>
-            <div class="form-group" style="margin-bottom:15px">
-                <label>费用类型:</label>
+
+            <div class="form-group" style="margin-bottom: 15px">
+                <label>费用类型 (Fee Type):</label>
                 <select id="createFeeType" class="sci-input">
                     <option value="PROPERTY_FEE">物业费</option>
                     <option value="HEATING_FEE">取暖费</option>
@@ -47,11 +49,13 @@
                     <option value="ELECTRICITY_FEE">电费</option>
                 </select>
             </div>
-            <div class="form-group" style="margin-bottom:15px">
-                <label>金额:</label>
-                <input type="number" id="createFeeAmount" class="sci-input">
+
+            <div class="form-group" style="margin-bottom: 15px">
+                <label>金额 (Amount):</label>
+                <input type="number" id="createFeeAmount" class="sci-input" placeholder="0.00">
             </div>
-            <button class="sci-btn" onclick="createFee()">创建</button>
+
+            <button class="sci-btn" onclick="createFee()">提交 (Submit)</button>
         </div>
     </div>
 </div>

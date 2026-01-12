@@ -2,6 +2,7 @@ package site.aronnax.service;
 
 import java.util.List;
 
+import jakarta.servlet.http.HttpSession;
 import site.aronnax.entity.WalletTransaction;
 
 /**
@@ -27,10 +28,15 @@ public interface WalletService {
      * 使用钱包余额缴纳指定账单
      * 事务性操作：扣减余额 -> 更新账单状态 -> 记录交易流水。
      *
-     * @param feeId 账单 ID
+     * 【权限控制】：
+     * - 业主可缴纳物业费、取暖费
+     * - 管理员可代缴物业费、取暖费，但不能代缴水电费
+     *
+     * @param feeId   账单 ID
+     * @param session HTTP会话，用于获取用户角色
      * @return 是否支付成功
      */
-    boolean payFeeFromWallet(Long feeId);
+    boolean payFeeFromWallet(Long feeId, HttpSession session);
 
     /**
      * 从钱包余额向水电卡充值（转账）
@@ -45,14 +51,6 @@ public interface WalletService {
      * @return 是否处理成功
      */
     boolean topUpCardFromWallet(Long userId, Long cardId, Double amount);
-
-    /**
-     * 检查用户是否存在针对钱包的欠费（如物业/取暖费）
-     *
-     * @param userId 用户 ID
-     * @return true 表示存在欠费（功能受限）
-     */
-    boolean checkWalletArrears(Long userId);
 
     /**
      * 获取钱包当前可用余额

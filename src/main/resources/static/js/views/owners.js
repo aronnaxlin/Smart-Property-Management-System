@@ -14,6 +14,10 @@ let currentUserTypeFilter = '';
  */
 async function loadOwners() {
     const tbody = document.getElementById('ownersTableBody');
+    if (!tbody) {
+        console.error('ownersTableBody element not found');
+        return;
+    }
     const loading = '<tr><td colspan="7" style="text-align:center;">加载中...</td></tr>';
     tbody.innerHTML = loading;
 
@@ -44,6 +48,10 @@ async function searchOwners() {
     }
 
     const tbody = document.getElementById('ownersTableBody');
+    if (!tbody) {
+        console.error('ownersTableBody element not found');
+        return;
+    }
     const loading = '<tr><td colspan="7" style="text-align:center;">搜索中...</td></tr>';
     tbody.innerHTML = loading;
 
@@ -74,6 +82,10 @@ function filterByUserType() {
  */
 function renderOwnerTable(list) {
     const tbody = document.getElementById('ownersTableBody');
+    if (!tbody) {
+        console.error('ownersTableBody element not found');
+        return;
+    }
 
     if (!list || list.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">暂无数据</td></tr>';
@@ -118,6 +130,11 @@ function renderOwnerTable(list) {
 async function viewOwnerDetail(id) {
     const modal = document.getElementById('ownerDetailModal');
     const content = document.getElementById('ownerDetailContent');
+
+    if (!modal || !content) {
+        console.error('Modal elements not found');
+        return;
+    }
 
     modal.style.display = 'block';
     content.innerHTML = '加载中...';
@@ -209,6 +226,10 @@ function showCreateUserModal() {
 
     // 切换性别字段为下拉选择
     const genderField = document.getElementById('userModalGender');
+    if (!genderField) {
+        console.error('userModalGender element not found');
+        return;
+    }
     const genderContainer = genderField.parentElement;
     genderContainer.innerHTML = `
         <label>性别:</label>

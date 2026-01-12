@@ -34,6 +34,11 @@ async function loadWalletInfo() {
     const userId = getUserId();
     const balanceElement = document.getElementById('walletBalance');
 
+    if (!balanceElement) {
+        console.error('walletBalance element not found');
+        return;
+    }
+
     try {
         const res = await window.api.get('/wallet/info', { userId: userId });
         if (res.code === 200) {
@@ -102,6 +107,10 @@ async function rechargeWallet() {
 async function loadTransactions() {
     const userId = getUserId();
     const tbody = document.getElementById('walletTransBody');
+    if (!tbody) {
+        console.error('walletTransBody element not found');
+        return;
+    }
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">加载中...</td></tr>';
 
     try {

@@ -41,6 +41,10 @@ function initAdminView() {
  */
 async function loadMyCards() {
     const tbody = document.getElementById('myCardsBody');
+    if (!tbody) {
+        console.error('myCardsBody element not found');
+        return;
+    }
     tbody.innerHTML = '<tr><td colspan="5" class="text-center">加载中...</td></tr>';
 
     try {
@@ -62,6 +66,10 @@ async function loadMyCards() {
  */
 function renderMyCards(cards) {
     const tbody = document.getElementById('myCardsBody');
+    if (!tbody) {
+        console.error('myCardsBody element not found');
+        return;
+    }
 
     if (!cards || cards.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="text-center text-dim">暂无水电卡</td></tr>';
@@ -92,6 +100,10 @@ function renderMyCards(cards) {
  */
 function populateCardSelector(cards) {
     const select = document.getElementById('ucSelectCard');
+    if (!select) {
+        console.error('ucSelectCard element not found');
+        return;
+    }
     select.innerHTML = '<option value="">请选择要充值的卡片...</option>';
 
     cards.forEach(card => {

@@ -140,6 +140,13 @@ const apiClient = {
      */
     async handleResponse(response) {
         if (!response.ok) {
+            // 检查会话失效（401 未授权）
+            if (response.status === 401 || response.status === 403) {
+                alert('会话已过期，请重新登录');
+                window.location.href = '/';
+                throw new Error('Session expired');
+            }
+
             // 尝试解析错误信息
             try {
                 const errData = await response.json();

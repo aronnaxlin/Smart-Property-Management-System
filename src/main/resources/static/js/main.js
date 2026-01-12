@@ -30,8 +30,8 @@ function setupNavigation() {
         let show = true;
 
         if (role === 'OWNER') {
-             // Owner can see utility, wallet, and AI chat
-             if (view !== 'utility' && view !== 'wallet' && view !== 'ai-chat') {
+             // Owner can see utility, wallet, fees, and AI chat
+             if (view !== 'utility' && view !== 'wallet' && view !== 'fees' && view !== 'ai-chat') {
                  show = false;
              }
         }

@@ -36,15 +36,6 @@ public interface FeeService {
     int batchCreateFees(List<Long> propertyIds, String feeType, Double amount);
 
     /**
-     * 缴纳费用（更新支付状态）
-     * 通常由控制层调用，标记该笔流水已结清。
-     *
-     * @param feeId 账单 ID
-     * @return 是否处理成功
-     */
-    boolean payFee(Long feeId);
-
-    /**
      * 获取全系统所有处于“待缴费”状态的原始单据
      */
     List<Fee> getUnpaidFees();
@@ -71,4 +62,13 @@ public interface FeeService {
      * 仅针对需要余额支付的费用（如物业费、取暖费）进行校验。
      */
     boolean checkWalletArrears(Long propertyId);
+
+    /**
+     * 获取指定用户的欠费汇总表
+     * 仅返回该用户名下房产的欠费数据
+     *
+     * @param userId 用户 ID
+     * @return 包含房产位置和费用信息的汇总数据
+     */
+    List<Map<String, Object>> getArrearsListByUserId(Long userId);
 }

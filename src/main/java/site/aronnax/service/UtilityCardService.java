@@ -44,4 +44,13 @@ public interface UtilityCardService {
      * @return 水电卡实体
      */
     site.aronnax.entity.UtilityCard findById(Long cardId);
+
+    /**
+     * 从水电卡余额中扣除费用
+     * 用于业主支付水费/电费账单
+     *
+     * @param feeId 费用ID
+     * @return 是否支付成功
+     */
+    boolean payFeeFromCard(Long feeId);
 }

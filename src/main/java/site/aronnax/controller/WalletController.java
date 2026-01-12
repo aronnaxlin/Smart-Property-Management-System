@@ -8,13 +8,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.servlet.http.HttpSession;
 import site.aronnax.common.Result;
 import site.aronnax.entity.WalletTransaction;
 import site.aronnax.service.WalletService;
 
 /**
  * 电子钱包控制器
- * 提供账户余额查询、线上充值、在线缴费及交易流水调阅功能。
+ * 提供账户余额查券、线上充值、在线缴费及交易流水调阅功能。
  *
  * @author Aronnax (Li Linhan)
  */
@@ -76,7 +77,7 @@ public class WalletController {
             return Result.success("资金已安全到达电子钱包账户");
         }
 
-        return Result.error("充值处理失败，由于系统链路故障，请点击“重新提交”");
+        return Result.error("充值处理失败，由于系统链路故障，请点击重新提交");
     }
 
     /**
@@ -96,21 +97,25 @@ public class WalletController {
     /**
      * 余额代扣（生活缴费）
      * 允许业主通过钱包余额结清物业费或取暖费。
+     * 【权限控制】管理员不能代缴水电费
      *
      * @param feeId 账单单号
      */
     @PostMapping("/pay-fee")
-    public Result<String> payFee(@RequestParam("feeId") Long feeId) {
+    public Result<String> payFee(@RequestParam("feeId") Long feeId, HttpSession session) {
         if (feeId == null || feeId <= 0) {
             return Result.error("账单流水号无效");
         }
 
-        // 执行双向原子扣款
-        boolean success = walletService.payFeeFromWallet(feeId);
-        if (success) {
-            return Result.success("账单缴清，系统已实时更新房产财务状态");
+        try {
+            // 执行双向原子扣款（含角色验证）
+            boolean success = walletService.payFeeFromWallet(feeId, session);
+            if (success) {
+                return Result.success("账单缴清，系统已实时更新房产财务状态");
+            }
+            return Result.error("缴费失败：可能由于账户余额不足或该账单已被锁定");
+        } catch (IllegalArgumentException e) {
+            return Result.error(e.getMessage());
         }
-
-        return Result.error("缴费失败：可能由于账户余额不足或该账单已被锁定");
     }
 }

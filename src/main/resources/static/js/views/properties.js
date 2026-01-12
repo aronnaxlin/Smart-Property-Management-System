@@ -23,7 +23,13 @@ async function loadProperties() {
         }
     } catch (e) {
         console.error('加载房产列表错误:', e);
-        alert('系统错误');
+        // 检查是否是会话失效（401 或 403）
+        if (e.message && (e.message.includes('401') || e.message.includes('403') || e.message.includes('请先登录'))) {
+            alert('会话已过期，请重新登录');
+            window.location.href = '/';
+            return;
+        }
+        alert('系统错误，请稍后重试');
     }
 }
 
@@ -64,6 +70,12 @@ async function searchProperties() {
  */
 function renderPropertyTable(properties) {
     const tbody = document.getElementById('propertyTableBody');
+
+    // 防止 DOM 元素不存在导致的错误
+    if (!tbody) {
+        console.error('propertyTableBody element not found');
+        return;
+    }
 
     if (!properties || properties.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" class="text-center text-dim">暂无数据</td></tr>';

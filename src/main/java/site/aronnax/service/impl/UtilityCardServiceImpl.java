@@ -26,12 +26,14 @@ public class UtilityCardServiceImpl implements UtilityCardService {
     private final UtilityCardDAO utilityCardDAO;
     private final FeeService feeService;
     private final site.aronnax.dao.PropertyDAO propertyDAO;
+    private final site.aronnax.dao.FeeDAO feeDAO;
 
     public UtilityCardServiceImpl(UtilityCardDAO utilityCardDAO, FeeService feeService,
-            site.aronnax.dao.PropertyDAO propertyDAO) {
+            site.aronnax.dao.PropertyDAO propertyDAO, site.aronnax.dao.FeeDAO feeDAO) {
         this.utilityCardDAO = utilityCardDAO;
         this.feeService = feeService;
         this.propertyDAO = propertyDAO;
+        this.feeDAO = feeDAO;
     }
 
     /**
@@ -118,5 +120,65 @@ public class UtilityCardServiceImpl implements UtilityCardService {
     @Override
     public UtilityCard findById(Long cardId) {
         return utilityCardDAO.findById(cardId);
+    }
+
+    /**
+     * 从水电卡余额中扣除费用
+     * 用于业主支付水费/电费账单
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean payFeeFromCard(Long feeId) {
+        // 1. 查询费用记录
+        site.aronnax.entity.Fee fee = feeDAO.findById(feeId);
+        if (fee == null || fee.getIsPaid() == 1) {
+            return false;
+        }
+
+        // 2. 验证费用类型（只允许水电费）
+        if (!"WATER_FEE".equals(fee.getFeeType()) && !"ELECTRICITY_FEE".equals(fee.getFeeType())) {
+            throw new IllegalArgumentException("该费用类型不支持从水电卡扣除");
+        }
+
+        // 3. 查询房产和对应的水电卡
+        site.aronnax.entity.Property property = propertyDAO.findById(fee.getpId());
+        if (property == null) {
+            throw new IllegalStateException("未找到对应的房产信息");
+        }
+
+        // 4. 根据费用类型找到对应的卡
+        java.util.List<UtilityCard> cards = utilityCardDAO.findByPropertyId(property.getpId());
+        UtilityCard targetCard = null;
+
+        for (UtilityCard card : cards) {
+            if ("WATER_FEE".equals(fee.getFeeType()) && "WATER".equals(card.getCardType())) {
+                targetCard = card;
+                break;
+            } else if ("ELECTRICITY_FEE".equals(fee.getFeeType()) && "ELEC".equals(card.getCardType())) {
+                targetCard = card;
+                break;
+            }
+        }
+
+        if (targetCard == null) {
+            throw new IllegalStateException("未找到对应的水电卡");
+        }
+
+        // 5. 验证余额
+        Double balance = targetCard.getBalance() != null ? targetCard.getBalance() : 0.0;
+        if (balance < fee.getAmount()) {
+            throw new IllegalStateException("卡片余额不足，请先充值。当前余额：" + balance + "元，需支付：" + fee.getAmount() + "元");
+        }
+
+        // 6. 扣除卡片余额
+        targetCard.setBalance(balance - fee.getAmount());
+        if (!utilityCardDAO.update(targetCard)) {
+            return false;
+        }
+
+        // 7. 标记费用为已支付
+        fee.setIsPaid(1);
+        fee.setPayDate(java.time.LocalDateTime.now());
+        return feeDAO.update(fee);
     }
 }
