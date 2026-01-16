@@ -106,11 +106,6 @@ logs/
 *~
 
 # ============================================
-# Project Specific - Gemini Artifacts
-# ============================================
-.gemini/
-
-# ============================================
 # SQL Files - Keep schema and data, ignore temp
 # ============================================
 # Keep all SQL files by default
@@ -128,3 +123,4 @@ sql/migration_*.sql
 !docs/**/*.md
 # Ignore generated documentation
 docs/generated/
+
